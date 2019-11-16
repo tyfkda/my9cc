@@ -240,8 +240,35 @@ int fileno(FILE *fp) {
   return fp->fd;
 }
 
+int fflush(FILE *fp) {
+  int wp = fp->wp;
+  if (wp > 0) {
+    fp->wp = 0;
+    size_t write_size = write(fp->fd, fp->buf, wp);
+    if (write_size != (size_t)wp)
+      return EOF;
+  }
+  return 0;
+}
+
+int fputc(int c, FILE* fp) {
+  fp->buf[fp->wp++] = c;
+  if (c == '\n' || fp->wp >= sizeof(fp->buf)) {
+    if (fflush(fp) == EOF)
+      return EOF;
+  }
+  return c;
+}
+
 size_t fwrite(const void *buffer, size_t size, size_t count, FILE *fp) {
-  write(fp->fd, buffer, size * count);
+  const unsigned char *src = (const unsigned char*)buffer;
+  size_t total = size * count;
+  for (size_t i = 0; i < total; ++i) {
+    if (fputc(*src, fp) == EOF)
+      return i;
+    ++src;
+  }
+  return total;
 }
 
 size_t fread(void *buffer, size_t size, size_t count, FILE *fp) {
@@ -252,7 +279,7 @@ int vfprintf(FILE *fp, const char *fmt, va_list ap) {
   // TODO: directly output to fd, not use vsnprintf.
   char buf[1024];
   int len = vsnprintf(buf, sizeof(buf), fmt, ap);
-  return write(fileno(fp), buf, len);
+  return fwrite(buf, 1, len, fp);
 }
 
 int fprintf(FILE *fp, const char *fmt, ...) {
@@ -452,7 +479,7 @@ FILE *fopen(const char *fileName, const char *mode) {
     return NULL;
   }
 
-  FILE *fp = malloc(sizeof(*fp));
+  FILE *fp = calloc(1, sizeof(*fp));
   if (fp == NULL) {
     close(fd);
     return NULL;
@@ -465,6 +492,7 @@ FILE *fopen(const char *fileName, const char *mode) {
 int fclose(FILE *fp) {
   if (fp == NULL || fp->fd < 0)
     return EOF;
+  fflush(fp);
   close(fp->fd);
   fp->fd = -1;
   free(fp);
@@ -476,18 +504,12 @@ int fseek(FILE *fp, long offset, int origin) {
 }
 
 long ftell(FILE *fp) {
-  return fseek(fp, 0, SEEK_CUR);
+  return fseek(fp, 0, SEEK_CUR) + fp->wp;
 }
 
 int fgetc(FILE *fp) {
   unsigned char c;
   int len = read(fp->fd, &c, 1);
-  return len == 1 ? c : EOF;
-}
-
-int fputc(int c, FILE *fp) {
-  unsigned char cc = c;
-  int len = write(fp->fd, &cc, 1);
   return len == 1 ? c : EOF;
 }
 
