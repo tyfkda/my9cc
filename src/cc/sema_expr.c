@@ -308,15 +308,18 @@ const VarInfo *search_from_anonymous(const Type *type, const Name *name, const T
     const VarInfo *member = members->data[i];
     if (member->name != NULL) {
       if (equal_name(member->name, name)) {
-        vec_push(stack, (void*)(long)i);
+        if (stack != NULL)
+          vec_push(stack, (void*)(long)i);
         return member;
       }
     } else if (member->type->kind == TY_STRUCT) {
-      vec_push(stack, (void*)(intptr_t)i);
+      if (stack != NULL)
+        vec_push(stack, (void*)(intptr_t)i);
       const VarInfo *submember = search_from_anonymous(member->type, name, ident, stack);
       if (submember != NULL)
         return submember;
-      vec_pop(stack);
+      if (stack != NULL)
+        vec_pop(stack);
     }
   }
   return NULL;
@@ -741,12 +744,12 @@ static Expr *sema_expr_keep_left(Expr *expr, bool keep_left) {
       if (index >= 0) {
         const VarInfo *member = targetType->struct_.info->members->data[index];
         expr->type = member->type;
-        expr->member.index = index;
+        //expr->member.index = index;
       } else {
-        Vector *stack = new_vector();
-        const VarInfo *member = search_from_anonymous(targetType, ident->ident, ident, stack);
+        const VarInfo *member = search_from_anonymous(targetType, ident->ident, ident, NULL);
         if (member == NULL)
           parse_error(ident, "`%.*s' doesn't exist in the struct", name->bytes, name->chars);
+        /*
         Expr *p = target;
         const Type *type = targetType;
         for (int i = 0; i < stack->len; ++i) {
@@ -756,6 +759,7 @@ static Expr *sema_expr_keep_left(Expr *expr, bool keep_left) {
           p = new_expr_member(acctok, type, p, NULL, index);
         }
         expr = p;
+        */
       }
     }
     break;

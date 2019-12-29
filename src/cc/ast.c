@@ -83,7 +83,8 @@ Expr *new_expr_member(const Token *token, const Type *type, Expr *target, const 
   Expr *expr = new_expr(EX_MEMBER, type, token);
   expr->member.target = target;
   expr->member.ident = ident;
-  expr->member.index = index;
+  //expr->member.index = index;
+  UNUSED(index);
   return expr;
 }
 

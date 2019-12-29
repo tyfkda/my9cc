@@ -198,6 +198,16 @@ static VReg *gen_cast(VReg *reg, const Type *ltype, const Type *rtype) {
   return new_ir_cast(reg, to_vtype(ltype), src_size, is_unsigned);
 }
 
+static VReg *gen_member_access(VReg *reg, const StructInfo *sinfo, int index) {
+  const VarInfo *member = sinfo->members->data[index];
+  if (member->struct_.offset == 0)
+    return reg;
+  VRegType *vtype = to_vtype(&tySize);
+  VReg *imm = new_const_vreg(member->struct_.offset, vtype);
+  VReg *result = new_ir_bop(IR_ADD, reg, imm, vtype);
+  return result;
+}
+
 static VReg *gen_lval(Expr *expr) {
   while (expr->kind == EX_GROUP)
     expr = expr->unary.sub;
@@ -222,25 +232,47 @@ static VReg *gen_lval(Expr *expr) {
     return gen_expr(expr->unary.sub);
   case EX_MEMBER:
     {
-      const Type *type = expr->member.target->type;
+      Expr *target = expr->member.target;
+      const Type *type = target->type;
       if (type->kind == TY_PTR || type->kind == TY_ARRAY)
         type = type->pa.ptrof;
       assert(type->kind == TY_STRUCT);
-      calc_struct_size(type->struct_.info);
-      const Vector *members = type->struct_.info->members;
-      const VarInfo *member = members->data[expr->member.index];
 
       VReg *reg;
       if (expr->member.target->type->kind == TY_PTR)
         reg = gen_expr(expr->member.target);
       else
         reg = gen_lval(expr->member.target);
-      if (member->struct_.offset == 0)
+
+      calc_struct_size(type->struct_.info);
+      const Vector *members = type->struct_.info->members;
+
+      const Type *targetType = type;
+      const Token *ident = expr->member.ident;
+      const Name *name = ident->ident;
+      int index = var_find(members, name);
+      if (index < 0) {
+        Vector *stack = new_vector();
+        bool res = search_from_anonymous(targetType, ident->ident, ident, stack);
+        assert(res);
+        assert(stack->len >= 1);
+
+        const Type *type = targetType;
+        for (int i = 0; i < stack->len; ++i) {
+          index = (int)(long)stack->data[i];
+          reg = gen_member_access(reg, type->struct_.info, index);
+        }
         return reg;
-      VRegType *vtype = to_vtype(&tySize);
-      VReg *imm = new_const_vreg(member->struct_.offset, vtype);
-      VReg *result = new_ir_bop(IR_ADD, reg, imm, vtype);
-      return result;
+        /*
+          const VarInfo *member = type->struct_.info->members->data[index];
+          type = member->type;
+          p = new_expr_member(acctok, type, p, NULL, index);
+        }
+        expr = p;
+        */
+      } else {
+        return gen_member_access(reg, type->struct_.info, index);
+      }
     }
   default:
     assert(false);

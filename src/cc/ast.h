@@ -107,7 +107,6 @@ typedef struct Expr {
     struct {
       struct Expr *target;
       const Token *ident;
-      int index;
     } member;
     struct {
       const Type *type;  // sizeof(Type), or
