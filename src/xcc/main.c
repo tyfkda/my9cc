@@ -180,10 +180,14 @@ int main(int argc, char* argv[]) {
     if (strncmp(arg, "-I", 2) == 0 ||
         strncmp(arg, "-D", 2) == 0)
       vec_push(cpp_cmd, arg);
+
     if (strncmp(arg, "-o", 2) == 0) {
       ofn = arg + 2;
       vec_push(as_cmd, arg);
     }
+    if (strncmp(arg, "--target=", 9) == 0)
+      vec_push(as_cmd, arg);
+
     if (strcmp(arg, "-E") == 0) {
       out_pp = true;
       run_asm = false;

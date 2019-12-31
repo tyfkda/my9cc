@@ -17,19 +17,22 @@
 
 #define PROG_START   (0x100)
 
+#define LINUX_START_ADDRESS    (0x01000000 + PROG_START)
+#define XV6_START_ADDRESS    0x1000
+
 #if defined(__XV6)
 // XV6
 #include "../kernel/syscall.h"
 #include "../kernel/traps.h"
 
-#define START_ADDRESS    0x1000
+//#define START_ADDRESS    0x1000
 
 #elif defined(__linux__)
 // Linux
 
 #include <sys/stat.h>
 
-#define START_ADDRESS    (0x01000000 + PROG_START)
+//#define START_ADDRESS    (0x01000000 + PROG_START)
 
 #else
 
@@ -38,7 +41,7 @@
 
 #endif
 
-#define LOAD_ADDRESS    START_ADDRESS
+//#define LOAD_ADDRESS    START_ADDRESS
 
 #if !defined(AS_USE_CC)
 void parse_file(FILE *fp, const char *filename, Vector **section_irs, Table *label_table) {
@@ -95,13 +98,30 @@ static void put_padding(FILE* fp, uintptr_t start) {
 
 int main(int argc, char* argv[]) {
   const char *ofn = "a.out";
-  int iarg;
+  uintptr_t load_address;
+#if defined(__XV6)
+  load_address = XV6_START_ADDRESS;
+#else
+  load_address = LINUX_START_ADDRESS;
+#endif
 
+  int iarg;
   for (iarg = 1; iarg < argc; ++iarg) {
     if (*argv[iarg] != '-')
       break;
     if (strncmp(argv[iarg], "-o", 2) == 0)
       ofn = strdup_(argv[iarg] + 2);
+#if !defined(_XV6)
+    if (strncmp(argv[iarg], "--target=", 9) == 0) {
+      const char *target = argv[iarg] + 9;
+      if (strcmp(target, "xv6") == 0) {
+        load_address = XV6_START_ADDRESS;
+      } else {
+        fprintf(stderr, "Unknown target: %s\n", target);
+        return 1;
+      }
+    }
+#endif
   }
 
 #if !defined(AS_USE_CC)
@@ -136,7 +156,7 @@ int main(int argc, char* argv[]) {
 
   if (!err) {
     do {
-      calc_label_address(LOAD_ADDRESS, section_irs, &label_table);
+      calc_label_address(load_address, section_irs, &label_table);
     } while (!resolve_relative_address(section_irs, &label_table));
     emit_irs(section_irs, &label_table);
   }
@@ -149,7 +169,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  fix_section_size(LOAD_ADDRESS);
+  fix_section_size(load_address);
 
   size_t codefilesz, codememsz;
   size_t datafilesz, datamemsz;
