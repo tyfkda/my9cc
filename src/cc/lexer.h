@@ -118,6 +118,8 @@ typedef struct Token {
   };
 } Token;
 
+extern int compile_error_count;
+
 void init_lexer(void);
 void set_source_file(FILE *fp, const char *filename);
 void set_source_string(const char *line, const char *filename, int lineno);

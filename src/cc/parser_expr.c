@@ -53,9 +53,11 @@ void ensure_struct(Type *type, const Token *token) {
   assert(type->kind == TY_STRUCT);
   if (type->struct_.info == NULL) {
     StructInfo *sinfo = find_struct(type->struct_.name);
-    if (sinfo == NULL)
+    if (sinfo == NULL) {
       parse_error(token, "Accessing unknown struct(%.*s)'s member", type->struct_.name->bytes,
                   type->struct_.name->chars);
+      return;
+    }
     type->struct_.info = sinfo;
   }
 
@@ -81,8 +83,10 @@ bool check_cast(const Type *dst, const Type *src, bool zero, bool is_explicit, c
 }
 
 Expr *make_cast(const Type *type, const Token *token, Expr *sub, bool is_explicit) {
-  if (type->kind == TY_VOID || sub->type->kind == TY_VOID)
+  if (type->kind == TY_VOID || sub->type->kind == TY_VOID) {
     parse_error(NULL, "cannot use `void' as a value");
+    return sub;
+  }
 
   if (same_type(type, sub->type))
     return sub;
@@ -246,8 +250,10 @@ static Expr *new_expr_addsub(enum ExprKind kind, const Token *tok, Expr *lhs, Ex
     } else if (kind == EX_SUB && ptr_or_array(rtype)) {
       ltype = array_to_ptr(ltype);
       rtype = array_to_ptr(rtype);
-      if (!same_type(ltype, rtype))
+      if (!same_type(ltype, rtype)) {
         parse_error(tok, "Different pointer diff");
+        return NULL;
+      }
       const Type *elem_type = ltype->pa.ptrof;
       return new_expr_bop(EX_DIV, &tySize, tok, new_expr_bop(EX_SUB, &tySize, tok, lhs, rhs),
                           new_expr_sizeof(tok, elem_type));
@@ -266,6 +272,7 @@ static Expr *new_expr_addsub(enum ExprKind kind, const Token *tok, Expr *lhs, Ex
   }
   if (type == NULL) {
     parse_error(tok, "Cannot apply `%.*s'", (int)(tok->end - tok->begin), tok->begin);
+    return NULL;
   }
   return new_expr_bop(kind, type, tok, lhs, rhs);
 }
@@ -302,13 +309,17 @@ static Expr *new_expr_cmp(enum ExprKind kind, const Token *tok, Expr *lhs, Expr 
       rt = tt;
       kind = swap_cmp(kind);
     }
-    if (!can_cast(lt, rt, is_zero(rhs), false))
+    if (!can_cast(lt, rt, is_zero(rhs), false)) {
       parse_error(tok, "Cannot compare pointer to other types");
+      return NULL;
+    }
     if (rt->kind != TY_PTR)
       rhs = make_cast(lhs->type, rhs->token, rhs, false);
   } else {
-    if (!cast_integers(&lhs, &rhs, false))
+    if (!cast_integers(&lhs, &rhs, false)) {
       parse_error(tok, "Cannot compare except numbers");
+      return NULL;
+    }
 
     if (is_const(lhs) && !is_const(rhs)) {
       Expr *tmp = lhs;
@@ -348,8 +359,10 @@ static Expr *parse_funcall(Expr *func) {
   Vector *args = parse_args(&token);
   const Type *functype;
   if (!((functype = func->type)->kind == TY_FUNC ||
-        (func->type->kind == TY_PTR && (functype = func->type->pa.ptrof)->kind == TY_FUNC)))
+        (func->type->kind == TY_PTR && (functype = func->type->pa.ptrof)->kind == TY_FUNC))) {
     parse_error(func->token, "Cannot call except funtion");
+    return NULL;
+  }
 
   Vector *param_types = functype->func.param_types;  // <const Type*>
   bool vaargs = functype->func.vaargs;
@@ -357,8 +370,10 @@ static Expr *parse_funcall(Expr *func) {
     int argc = args != NULL ? args->len : 0;
     int paramc = param_types->len;
     if (!(argc == paramc ||
-          (vaargs && argc >= paramc)))
+          (vaargs && argc >= paramc))) {
       parse_error(token, "function `%.*s' expect %d arguments, but %d", func->variable.name->bytes, func->variable.name->chars, paramc, argc);
+      return NULL;
+    }
   }
 
   if (args != NULL && param_types != NULL) {
@@ -393,15 +408,20 @@ static Expr *parse_member_access(Expr *target, Token *acctok) {
   // Find member's type from struct info.
   const Type *targetType = target->type;
   if (acctok->kind == TK_DOT) {
-    if (targetType->kind != TY_STRUCT)
+    if (targetType->kind != TY_STRUCT) {
       parse_error(acctok, "`.' for non struct value");
+      return NULL;
+    }
   } else {  // TK_ARROW
     if (!ptr_or_array(targetType)) {
       parse_error(acctok, "`->' for non pointer value");
+      return NULL;
     } else {
       targetType = targetType->pa.ptrof;
-      if (targetType->kind != TY_STRUCT)
+      if (targetType->kind != TY_STRUCT) {
         parse_error(acctok, "`->' for non struct value");
+        return NULL;
+      }
     }
   }
 
@@ -413,8 +433,10 @@ static Expr *parse_member_access(Expr *target, Token *acctok) {
   } else {
     Vector *stack = new_vector();
     const VarInfo *member = search_from_anonymous(targetType, ident->ident, ident, stack);
-    if (member == NULL)
+    if (member == NULL) {
       parse_error(ident, "`%.*s' doesn't exist in the struct", name->bytes, name->chars);
+      return NULL;
+    }
     Expr *p = target;
     const Type *type = targetType;
     for (int i = 0; i < stack->len; ++i) {
@@ -431,8 +453,10 @@ static const Type *parse_enum(void) {
   Token *typeIdent = match(TK_IDENT);
   Type *type = typeIdent != NULL ? find_enum(typeIdent->ident) : NULL;
   if (match(TK_LBRACE)) {
-    if (type != NULL)
+    if (type != NULL) {
       parse_error(typeIdent, "Duplicate enum type");
+      return NULL;
+    }
     type = define_enum(typeIdent != NULL ? typeIdent->ident : NULL);
     if (!match(TK_RBRACE)) {
       int value = 0;
@@ -444,14 +468,17 @@ static const Type *parse_enum(void) {
           Expr *expr = parse_const();
           if (!(is_const(expr) && is_number(expr->type->kind))) {
             parse_error(numtok, "const expected for enum");
+            return NULL;
+          } else {
+            value = expr->num.ival;
           }
-          value = expr->num.ival;
         }
 
         intptr_t dummy;
         if (find_enum_value(ident->ident, &dummy) ||
             find_global(ident->ident) != NULL) {
           parse_error(ident, "`%.*s' is already defined", ident->ident->bytes, ident->ident->chars);
+          return NULL;
         } else {
           add_enum_member(type, ident->ident, value);
         }
@@ -464,8 +491,10 @@ static const Type *parse_enum(void) {
       }
     }
   } else {
-    if (type == NULL)
+    if (type == NULL) {
       parse_error(typeIdent, "Unknown enum type");
+      return NULL;
+    }
   }
   return type;
 }
@@ -500,8 +529,10 @@ const Type *parse_raw_type(int *pflag) {
     Token *ident;
     if (((tok = match(TK_STRUCT)) != NULL) ||
         ((tok = match(TK_UNION)) != NULL)) {
-      if (is_unsigned)
+      if (is_unsigned) {
         parse_error(tok, "`unsigned' for struct/union");
+        // Fallthrough
+      }
 
       bool is_union = tok->kind == TK_UNION;
       const Name *name = NULL;
@@ -514,31 +545,40 @@ const Type *parse_raw_type(int *pflag) {
         sinfo = parse_struct(is_union);
         if (name != NULL) {
           StructInfo *exist = find_struct(name);
-          if (exist != NULL)
+          if (exist != NULL) {
             parse_error(ident, "`%.*s' already defined", name->bytes, name->chars);
-          define_struct(name, sinfo);
+            // Fallthrough
+          } else {
+            define_struct(name, sinfo);
+          }
         }
       } else {
         if (name != NULL) {
           sinfo = find_struct(name);
           if (sinfo != NULL) {
-            if (sinfo->is_union != is_union)
+            if (sinfo->is_union != is_union) {
               parse_error(tok, "Wrong tag for `%.*s'", name->bytes, name->chars);
+              // Fallthrough
+            }
           }
         }
       }
 
-      if (name == NULL && sinfo == NULL)
+      if (name == NULL && sinfo == NULL) {
         parse_error(NULL, "Illegal struct/union usage");
-
-      Type *stype = malloc(sizeof(*type));
-      stype->kind = TY_STRUCT;
-      stype->struct_.name = name;
-      stype->struct_.info = sinfo;
-      type = stype;
+        break;
+      } else {
+        Type *stype = malloc(sizeof(*type));
+        stype->kind = TY_STRUCT;
+        stype->struct_.name = name;
+        stype->struct_.info = sinfo;
+        type = stype;
+      }
     } else if ((tok = match(TK_ENUM)) != NULL) {
-      if (is_unsigned)
+      if (is_unsigned) {
         parse_error(tok, "`unsigned' for enum");
+        // Fallthrough
+      }
 
       type = parse_enum();
     } else if ((ident = match(TK_IDENT)) != NULL) {
@@ -546,12 +586,16 @@ const Type *parse_raw_type(int *pflag) {
       if (type == NULL) {
         unget_token(ident);
       } else {
-        if (is_unsigned)
+        if (is_unsigned) {
           parse_error(ident, "`unsigned' for typedef");
+          // Fallthrough
+        }
       }
     } else if ((tok = match(TK_VOID)) != NULL) {
-      if (is_unsigned)
+      if (is_unsigned) {
         parse_error(tok, "`unsigned' for void");
+        // Fallthrough
+      }
 
       type = &tyVoid;
     } else {
@@ -615,12 +659,16 @@ const Type *parse_type_suffix(const Type *type) {
   } else {
     const Token *tok = fetch_token();
     Expr *expr = parse_const();
-    if (!(is_const(expr) && is_number(expr->type->kind)))
+    if (!(is_const(expr) && is_number(expr->type->kind))) {
       parse_error(tok, "constant expected");
-    if (expr->num.ival <= 0)
-      parse_error(tok, "Array size must be greater than 0, but %d", (int)expr->num.ival);
-    length = expr->num.ival;
-    consume(TK_RBRACKET, "`]' expected");
+    } else {
+      if (expr->num.ival <= 0) {
+        parse_error(tok, "Array size must be greater than 0, but %d", (int)expr->num.ival);
+      } else {
+        length = expr->num.ival;
+        consume(TK_RBRACKET, "`]' expected");
+      }
+    }
   }
   return arrayof(parse_type_suffix(type), length);
 }
@@ -705,8 +753,10 @@ Vector *parse_funparams(bool *pvaargs) {
       const Type *type;
       int flag;
       Token *ident;
-      if (!parse_var_def(NULL, &type, &flag, &ident))
+      if (!parse_var_def(NULL, &type, &flag, &ident)) {
         parse_error(NULL, "type expected");
+        break;
+      }
       if (flag & VF_STATIC)
         parse_error(ident, "`static' for function parameter");
       if (flag & VF_EXTERN)
@@ -747,8 +797,10 @@ static StructInfo *parse_struct(bool is_union) {
       const Type *type;
       int flag;
       Token *ident;
-      if (!parse_var_def(&rawType, &type, &flag, &ident))
+      if (!parse_var_def(&rawType, &type, &flag, &ident)) {
         parse_error(NULL, "type expected");
+        return NULL;
+      }
       not_void(type);
       var_add(members, ident, type, flag);
 

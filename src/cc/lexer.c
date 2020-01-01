@@ -11,6 +11,7 @@
 #include "util.h"
 
 #define MAX_LOOKAHEAD  (2)
+#define MAX_ERROR_COUNT  (25)
 
 static const struct {
   const char *str;
@@ -111,8 +112,8 @@ typedef struct {
 } Lexer;
 
 static Lexer lexer;
-
 static Table reserved_word_table;
+int compile_error_count;
 
 static void show_error_line(const char *line, const char *p, int len) {
   fprintf(stderr, "%s\n", line);
@@ -138,7 +139,8 @@ static void lex_error(const char *p, const char *fmt, ...) {
 
   show_error_line(lexer.line->buf, p, 1);
 
-  exit(1);
+  if (++compile_error_count >= MAX_ERROR_COUNT)
+    exit(1);
 }
 
 void parse_error(const Token *token, const char *fmt, ...) {
@@ -157,7 +159,8 @@ void parse_error(const Token *token, const char *fmt, ...) {
   if (token != NULL && token->line != NULL && token->begin != NULL)
     show_error_line(token->line->buf, token->begin, token->end - token->begin);
 
-  exit(1);
+  if (++compile_error_count >= MAX_ERROR_COUNT)
+    exit(1);
 }
 
 static Token *alloc_token(enum TokenKind kind, const char *begin, const char *end) {
@@ -356,8 +359,10 @@ static const char *skip_whitespace_or_comment(const char *p) {
     } else if (c == '/') {
       if (*p == '*') {
         p = skip_block_comment(p + 1);
-        if (p == NULL)
+        if (p == NULL) {
           lex_error(p, "Block comment not closed");
+          return NULL;
+        }
         continue;
       } else if (*p == '/') {
         p = skip_line_comment();
@@ -385,8 +390,10 @@ static Token *read_num(const char **pp) {
   }
   const char *q = p;
   long val = strtol(p, (char**)&p, base);
-  if (p == q)
+  if (p == q) {
     lex_error(p, "Illegal literal");
+    val = 0;
+  }
 
   enum TokenKind tt = TK_INTLIT;
   for (;;) {
@@ -422,18 +429,24 @@ static Token *read_char(const char **pp) {
   const char *p = *pp;
   const char *begin = p++;
   char c = *p;
-  if (c == '\'')
+  if (c == '\'') {
     lex_error(p, "Empty character");
-  if (c == '\\') {
-    c = *(++p);
-    if (c == '\0')
+    c = '\0';
+    ++p;
+  } else {
+    if (c == '\\') {
+      c = *(++p);
+      if (c == '\0')
+        --p;  // Raise error with no close quote.
+      else
+        c = backslash(c);
+    }
+    if (*(++p) != '\'')
       lex_error(p, "Character not closed");
-    c = backslash(c);
+    else
+      ++p;
   }
-  if (*(++p) != '\'')
-    lex_error(p, "Character not closed");
 
-  ++p;
   Token *tok = alloc_token(TK_CHARLIT, begin, p);
   tok->value = c;
   *pp = p;
@@ -449,19 +462,26 @@ static Token *read_string(const char **pp) {
   for (;;) {
     begin = p++;  // Skip first '"'
     for (char c; (c = *p++) != '"'; ) {
-      if (c == '\0')
-        lex_error(p - 1, "String not closed");
+      if (c == '\0') {
+        lex_error(--p, "String not closed");
+        break;
+      }
       if (size + 1 >= capa) {
         capa += ADD;
-        str = realloc(str, capa);
-        if (str == NULL)
+        char *newstr = realloc(str, capa);
+        if (newstr == NULL) {
           lex_error(p, "Out of memory");
+          break;
+        }
+        str = newstr;
       }
 
       if (c == '\\') {
         c = *p++;
-        if (c == '\0')
-          lex_error(p, "String not closed");
+        if (c == '\0') {
+          lex_error(--p, "String not closed");
+          break;
+        }
         c = backslash(c);
       }
       assert(size < capa);
@@ -546,7 +566,7 @@ static Token *get_token(void) {
     tok = read_string(&p);
   } else {
     lex_error(p, "Unexpected character `%c'(%d)", *p, *p);
-    return NULL;
+    return &kEofToken;
   }
 
   assert(tok != NULL);

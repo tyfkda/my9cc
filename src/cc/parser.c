@@ -30,6 +30,7 @@ void fix_array_size(Type *type, Initializer *init) {
                  init->single->kind == EX_STR);
   if (!is_str && init->kind != IK_MULTI) {
     parse_error(init->token, "Error initializer");
+    return;
   }
 
   size_t arr_len = type->pa.length;
@@ -55,8 +56,10 @@ void fix_array_size(Type *type, Initializer *init) {
   } else {
     assert(!is_str || init->single->kind == EX_STR);
     size_t init_len = is_str ? init->single->str.size : (size_t)init->multi->len;
-    if (init_len > arr_len)
+    if (init_len > arr_len) {
       parse_error(NULL, "Initializer more than array size");
+      return;
+    }
   }
 }
 
@@ -116,8 +119,10 @@ static Stmt *init_char_array_by_string(Expr *dst, Initializer *src) {
   if (dstsize == (size_t)-1) {
     ((Type*)dst->type)->pa.length = dstsize = size;
   } else {
-    if (dstsize < size)
+    if (dstsize < size) {
       parse_error(NULL, "Buffer is shorter than string: %d for \"%s\"", (int)dstsize, str);
+      return NULL;
+    }
   }
 
   const Type *strtype = dst->type;
@@ -138,8 +143,10 @@ static Initializer *flatten_array_initializer(Initializer *init) {
   int i = 0, len = init->multi->len;
   for (; i < len; ++i) {
     Initializer *init_elem = init->multi->data[i];
-    if (init_elem->kind == IK_DOT)
+    if (init_elem->kind == IK_DOT) {
       parse_error(NULL, "dot initializer for array");
+      return init;
+    }
     if (init_elem->kind == IK_ARR)
       break;
   }
@@ -154,8 +161,10 @@ static Initializer *flatten_array_initializer(Initializer *init) {
   for (; i <= len; ++i, ++index) {  // '+1' is for last range.
     Initializer *init_elem = NULL;
     if (i >= len || (init_elem = init->multi->data[i])->kind == IK_ARR) {
-      if (i < len && init_elem->arr.index->kind != EX_NUM)
+      if (i < len && init_elem->arr.index->kind != EX_NUM) {
         parse_error(NULL, "Constant value expected");
+        return init;
+      }
       if ((size_t)i > lastStartIndex) {
         size_t *range = malloc(sizeof(size_t) * 3);
         range[0] = lastStart;
@@ -167,8 +176,10 @@ static Initializer *flatten_array_initializer(Initializer *init) {
         break;
       lastStart = index = init_elem->arr.index->num.ival;
       lastStartIndex = i;
-    } else if (init_elem->kind == IK_DOT)
+    } else if (init_elem->kind == IK_DOT) {
       parse_error(NULL, "dot initializer for array");
+      return init;
+    }
   }
 
   // Sort
@@ -184,8 +195,10 @@ static Initializer *flatten_array_initializer(Initializer *init) {
     size_t count = p[2];
     if (i > 0) {
       size_t *q = ranges->data[i - 1];
-      if (start < q[0] + q[2])
+      if (start < q[0] + q[2]) {
         parse_error(NULL, "Initializer for array overlapped");
+        return init;
+      }
     }
     for (size_t j = 0; j < count; ++j) {
       Initializer *elem = init->multi->data[index + j];
@@ -219,12 +232,16 @@ static Initializer *flatten_initializer(const Type *type, Initializer *init) {
       int n = sinfo->members->len;
       int m = init->multi->len;
       if (n <= 0) {
-        if (m > 0)
+        if (m > 0) {
           parse_error(init->token, "Initializer for empty struct");
+          return init;
+        }
         return NULL;
       }
-      if (sinfo->is_union && m > 1)
+      if (sinfo->is_union && m > 1) {
         parse_error(((Initializer*)init->multi->data[1])->token, "Initializer for union more than 1");
+        return init;
+      }
 
       Initializer **values = malloc(sizeof(Initializer*) * n);
       for (int i = 0; i < n; ++i)
@@ -233,8 +250,10 @@ static Initializer *flatten_initializer(const Type *type, Initializer *init) {
       int index = 0;
       for (int i = 0; i < m; ++i) {
         Initializer *value = init->multi->data[i];
-        if (value->kind == IK_ARR)
+        if (value->kind == IK_ARR) {
           parse_error(NULL, "indexed initializer for struct");
+          return init;
+        }
 
         if (value->kind == IK_DOT) {
           const Name *name = value->dot.name;
@@ -243,8 +262,10 @@ static Initializer *flatten_initializer(const Type *type, Initializer *init) {
             value = value->dot.value;
           } else {
             Vector *stack = new_vector();
-            if (search_from_anonymous(type, name, NULL, stack) == NULL)
+            if (search_from_anonymous(type, name, NULL, stack) == NULL) {
               parse_error(value->token, "`%.*s' is not member of struct", name->bytes, name->chars);
+              return init;
+            }
 
             index = (intptr_t)stack->data[0];
             Vector *multi = new_vector();
@@ -255,8 +276,10 @@ static Initializer *flatten_initializer(const Type *type, Initializer *init) {
             value = init2;
           }
         }
-        if (index >= n)
+        if (index >= n) {
           parse_error(NULL, "Too many init values");
+          return init;
+        }
 
         // Allocate string literal for char* as a char array.
         if (value->kind == IK_SINGLE && value->single->kind == EX_STR) {
@@ -321,8 +344,10 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
     break;
   case TY_PTR:
     {
-      if (init->kind != IK_SINGLE)
+      if (init->kind != IK_SINGLE) {
         parse_error(NULL, "initializer type error");
+        break;
+      }
 
       Expr *value = init->single;
       while (value->kind == EX_CAST || value->kind == EX_GROUP) {
@@ -333,23 +358,29 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
       case EX_REF:
         {
           value = value->unary.sub;
-          if (value->kind != EX_VARIABLE)
+          if (value->kind != EX_VARIABLE) {
             parse_error(value->token, "pointer initializer must be variable");
+            break;
+          }
           const Name *name = value->variable.name;
           if (value->variable.scope != NULL) {
             Scope *scope = value->variable.scope;
             VarInfo *varinfo = scope_find(&scope, name);
             assert(varinfo != NULL);
-            if (!(varinfo->flag & VF_STATIC))
+            if (!(varinfo->flag & VF_STATIC)) {
               parse_error(value->token, "Allowed global reference only");
+              break;
+            }
             name = varinfo->local.label;
           }
 
           VarInfo *info = find_global(name);
           assert(info != NULL);
 
-          if (!same_type(type->pa.ptrof, info->type))
+          if (!same_type(type->pa.ptrof, info->type)) {
             parse_error(value->token, "Illegal type");
+            break;
+          }
 
           return init;
         }
@@ -360,8 +391,10 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
             Scope *scope = value->variable.scope;
             VarInfo *varinfo = scope_find(&scope, name);
             assert(varinfo != NULL);
-            if (!(varinfo->flag & VF_STATIC))
+            if (!(varinfo->flag & VF_STATIC)) {
               parse_error(value->token, "Allowed global reference only");
+              break;
+            }
             name = varinfo->local.label;
           }
 
@@ -369,8 +402,10 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
           assert(info != NULL);
 
           if ((info->type->kind != TY_ARRAY && info->type->kind != TY_FUNC) ||
-              !can_cast(type, info->type, is_zero(value), false))
+              !can_cast(type, info->type, is_zero(value), false)) {
             parse_error(value->token, "Illegal type");
+            break;
+          }
 
           return init;
         }
@@ -383,8 +418,10 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
         }
       case EX_STR:
         {
-          if (!is_char_type(type->pa.ptrof))
+          if (!is_char_type(type->pa.ptrof)) {
             parse_error(value->token, "Illegal type");
+            break;
+          }
 
           // Create string and point to it.
           Type* strtype = arrayof(type->pa.ptrof, value->str.size);
@@ -413,6 +450,7 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
         assert(type->pa.length != (size_t)-1);
         if (type->pa.length < init->single->str.size) {
           parse_error(init->single->token, "Array size shorter than initializer");
+          break;
         }
         break;
       }
@@ -458,8 +496,10 @@ Vector *assign_initial_value(Expr *expr, Initializer *init, Vector *inits) {
       {
         size_t arr_len = expr->type->pa.length;
         assert(arr_len != (size_t)-1);
-        if ((size_t)init->multi->len > arr_len)
+        if ((size_t)init->multi->len > arr_len) {
           parse_error(NULL, "Initializer more than array size");
+          break;
+        }
 
         assert(curscope != NULL);
         const Type *ptr_type = array_to_ptr(expr->type);
@@ -473,8 +513,10 @@ Vector *assign_initial_value(Expr *expr, Initializer *init, Vector *inits) {
           Initializer *init_elem = init->multi->data[i];
           if (init_elem->kind == IK_ARR) {
             Expr *ind = init_elem->arr.index;
-            if (ind->kind != EX_NUM)
+            if (ind->kind != EX_NUM) {
               parse_error(NULL, "Number required");
+              break;
+            }
             index = ind->num.ival;
             init_elem = init_elem->arr.value;
           }
@@ -527,10 +569,14 @@ Vector *assign_initial_value(Expr *expr, Initializer *init, Vector *inits) {
       } else {
         int n = sinfo->members->len;
         int m = init->multi->len;
-        if (n <= 0 && m > 0)
+        if (n <= 0 && m > 0) {
           parse_error(NULL, "Initializer for empty union");
-        if (org_init->multi->len > 1)
+          break;
+        }
+        if (org_init->multi->len > 1) {
           parse_error(NULL, "More than one initializer for union");
+          break;
+        }
 
         for (int i = 0; i < n; ++i) {
           Initializer *init_elem = init->multi->data[i];
@@ -601,8 +647,10 @@ static Initializer *check_vardecl(const Type *type, const Token *ident, int flag
     //intptr_t eval;
     //if (find_enum_value(ident->ident, &eval))
     //  parse_error(ident, "`%.*s' is already defined", ident->ident->bytes, ident->ident->chars);
-    if (flag & VF_EXTERN && init != NULL)
+    if (flag & VF_EXTERN && init != NULL) {
       parse_error(init->token, "extern with initializer");
+      return init;
+    }
     // Toplevel
     VarInfo *varinfo = find_global(ident->ident);
     assert(varinfo != NULL);
@@ -618,8 +666,10 @@ static void add_func_label(const Token *label) {
     table_init(curdefun->label_table);
   }
   BB *bb;
-  if (table_try_get(curdefun->label_table, label->ident, (void**)&bb))
+  if (table_try_get(curdefun->label_table, label->ident, (void**)&bb)) {
     parse_error(label, "Label `%.*s' already defined", label->ident->bytes, label->ident->chars);
+    return;
+  }
   table_put(curdefun->label_table, label->ident, (void*)-1);  // Put dummy value.
 }
 
@@ -745,8 +795,10 @@ static Stmt *parse_vardecl(void) {
   Token *ident;
   if (!parse_var_def(&rawType, (const Type**)&type, &flag, &ident))
     return NULL;
-  if (ident == NULL)
+  if (ident == NULL) {
     parse_error(NULL, "Ident expected");
+    return NULL;
+  }
 
   Vector *decls = parse_vardecl_cont(rawType, type, flag, ident);
 
@@ -793,11 +845,15 @@ static Stmt *parse_case(const Token *tok) {
   Expr *value = parse_const();
   consume(TK_COLON, "`:' expected");
 
-  if (curswitch == NULL)
+  if (curswitch == NULL) {
     parse_error(tok, "`case' cannot use outside of `switch`");
+    return NULL;
+  }
 
-  if (!is_number(value->type->kind))
+  if (!is_number(value->type->kind)) {
     parse_error(value->token, "Cannot use expression");
+    return NULL;
+  }
   intptr_t v = value->num.ival;
 
   // Check duplication.
@@ -814,10 +870,14 @@ static Stmt *parse_case(const Token *tok) {
 static Stmt *parse_default(const Token *tok) {
   consume(TK_COLON, "`:' expected");
 
-  if (curswitch == NULL)
+  if (curswitch == NULL) {
     parse_error(tok, "`default' cannot use outside of `switch'");
-  if (curswitch->switch_.has_default)
+    return NULL;
+  }
+  if (curswitch->switch_.has_default) {
     parse_error(tok, "`default' already defined in `switch'");
+    return NULL;
+  }
 
   curswitch->switch_.has_default = true;
 
@@ -866,8 +926,10 @@ static Stmt *parse_for(const Token *tok) {
     int flag;
     Token *ident;
     if (parse_var_def(&rawType, (const Type**)&type, &flag, &ident)) {
-      if (ident == NULL)
+      if (ident == NULL) {
         parse_error(NULL, "Ident expected");
+        return NULL;
+      }
       scope = enter_scope(curdefun, NULL);
       decls = parse_vardecl_cont(rawType, type, flag, ident);
       consume(TK_SEMICOL, "`;' expected");
@@ -919,6 +981,7 @@ static Stmt *parse_break_continue(enum StmtKind kind, const Token *tok) {
     else
       err = "`continue' cannot be used outside of loop";
     parse_error(tok, err);
+    return NULL;
   }
   return new_stmt(kind, tok);
 }
@@ -948,12 +1011,15 @@ static Stmt *parse_return(const Token *tok) {
   assert(curdefun != NULL);
   const Type *rettype = curdefun->func->type->func.ret;
   if (val == NULL) {
-    if (rettype->kind != TY_VOID)
+    if (rettype->kind != TY_VOID) {
       parse_error(tok, "`return' required a value");
+      return NULL;
+    }
   } else {
-    if (rettype->kind == TY_VOID)
+    if (rettype->kind == TY_VOID) {
       parse_error(val->token, "void function `return' a value");
-
+      return NULL;
+    }
     val = make_cast(rettype, val->token, val, false);
   }
 
@@ -966,8 +1032,10 @@ static Stmt *parse_asm(const Token *tok) {
   Token *token;
   Vector *args = parse_args(&token);
 
-  if (args == NULL || args->len != 1 || ((Expr*)args->data[0])->kind != EX_STR)
+  if (args == NULL || args->len != 1 || ((Expr*)args->data[0])->kind != EX_STR) {
     parse_error(token, "`__asm' expected one string");
+    return NULL;
+  }
 
   return new_stmt_asm(tok, args->data[0]);
 }
@@ -1066,13 +1134,17 @@ static Declaration *parse_defun(const Type *functype, int flag, Token *ident) {
   if (varinfo == NULL) {
     varinfo = define_global(functype, flag | VF_CONST, ident, ident->ident);
   } else {
-    if (varinfo->type->kind != TY_FUNC)
+    if (varinfo->type->kind != TY_FUNC) {
       parse_error(ident, "Definition conflict: `%s'");
+      return NULL;
+    }
     // TODO: Check type.
     // TODO: Check duplicated definition.
-    if (varinfo->global.init != NULL)
+    if (varinfo->global.init != NULL) {
       parse_error(ident, "`%.*s' function already defined", defun->func->name->bytes,
                   defun->func->name->chars);
+      return NULL;
+    }
   }
 
   if (match(TK_SEMICOL)) {
@@ -1106,6 +1178,7 @@ static Declaration *parse_defun(const Type *functype, int flag, Token *ident) {
         if (label_table == NULL || !table_try_get(label_table, stmt->goto_.label->ident, &bb)) {
           const Name *name = stmt->goto_.label->ident;
           parse_error(stmt->goto_.label, "`%.*s' not found", name->bytes, name->chars);
+          return NULL;
         }
       }
     }
@@ -1119,8 +1192,10 @@ static void parse_typedef(void) {
   int flag;
   Token *ident;
   const Type *type = parse_full_type(&flag, &ident);
-  if (type == NULL)
+  if (type == NULL) {
     parse_error(NULL, "type expected");
+    return;
+  }
   not_void(type);
 
   if (ident == NULL) {
@@ -1129,8 +1204,10 @@ static void parse_typedef(void) {
   const Name *name = ident->ident;
   const Type *conflict = find_typedef(name);
   if (conflict != NULL) {
-    if (!same_type(type, conflict))
+    if (!same_type(type, conflict)) {
       parse_error(ident, "Conflict typedef");
+      return;
+    }
   }
 
   if (conflict == NULL || type->kind != TY_STRUCT || type->struct_.info != NULL)
@@ -1143,15 +1220,19 @@ static Declaration *parse_global_var_decl(const Type *rawtype, int flag, const T
                                           Token *ident) {
   Vector *decls = NULL;
   for (;;) {
-    if (type->kind == TY_VOID)
+    if (type->kind == TY_VOID) {
       parse_error(ident, "`void' not allowed");
+      return NULL;
+    }
 
     if (!(type->kind == TY_PTR && type->pa.ptrof->kind == TY_FUNC))
       type = parse_type_suffix(type);
 
     intptr_t eval;
-    if (find_enum_value(ident->ident, &eval))
+    if (find_enum_value(ident->ident, &eval)) {
       parse_error(ident, "`%.*s' is already defined", ident->ident->bytes, ident->ident->chars);
+      return NULL;
+    }
     VarInfo *varinfo = define_global(type, flag, ident, NULL);
 
     Initializer *init = NULL;
