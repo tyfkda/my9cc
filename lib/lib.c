@@ -1,3 +1,5 @@
+#define __XV6
+
 #include "ctype.h"
 #include "stdio.h"
 #include "stdlib.h"

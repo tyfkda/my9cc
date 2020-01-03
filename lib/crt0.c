@@ -1,3 +1,5 @@
+#define __XV6
+
 #if defined(__XV6)
 void _start(void) {
   __asm("call main");
