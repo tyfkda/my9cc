@@ -369,6 +369,9 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
       case EX_REF:
         {
           value = value->unary.sub;
+if (value->kind != EX_VAR) {
+  fprintf(stderr, "kind=%d, ", value->kind);
+}
           if (value->kind != EX_VAR)
             parse_error(value->token, "pointer initializer must be variable");
           const Name *name = value->var.name;
@@ -401,6 +404,11 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
 
           return init;
         }
+      case EX_ADD:
+      case EX_SUB:
+        {
+          return init;
+        }
       case EX_FIXNUM:
         return init;
       case EX_STR:
@@ -415,6 +423,7 @@ static Initializer *check_global_initializer(const Type *type, Initializer *init
       default:
         break;
       }
+fprintf(stderr, "value.kind=%d, ", value->kind);
       parse_error(value->token, "Initializer type error");
     }
     break;
