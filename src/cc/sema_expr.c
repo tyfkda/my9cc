@@ -570,8 +570,7 @@ static Expr *sema_expr_keep_left(Expr *expr, bool keep_left) {
   case EX_DEREF:
   case EX_GROUP:
   case EX_CAST:
-  case EX_ASSIGN_WITH:
-    expr->unary.sub = sema_expr_keep_left(expr->unary.sub, expr->kind == EX_ASSIGN_WITH);
+    expr->unary.sub = sema_expr_keep_left(expr->unary.sub, false);
     assert(expr->unary.sub->type != NULL);
 
     switch (expr->kind) {
@@ -650,13 +649,6 @@ static Expr *sema_expr_keep_left(Expr *expr, bool keep_left) {
       expr->type = expr->unary.sub->type;
       break;
 
-    case EX_ASSIGN_WITH:
-      sema_lval(expr->token, expr->unary.sub->bop.lhs, "Cannot assign");
-      if (!can_cast(expr->unary.sub->type, expr->unary.sub->bop.lhs->type, expr->unary.sub, false))
-        parse_error(expr->token, "Cannot assign");
-      expr->type = expr->unary.sub->bop.lhs->type;
-      break;
-
     case EX_CAST:
       {
         Expr *sub = expr->unary.sub;
@@ -670,6 +662,27 @@ static Expr *sema_expr_keep_left(Expr *expr, bool keep_left) {
       fprintf(stderr, "expr kind=%d\n", expr->kind);
       assert(!"sema not handled!");
       break;
+    }
+    break;
+
+  case EX_ASSIGN_WITH:
+    {
+      Expr *sub = expr->unary.sub, *lhs = sub->bop.lhs, *rhs = sub->bop.rhs;
+      sub->bop.lhs = lhs = sema_expr(lhs);
+      sub->bop.rhs = rhs = sema_expr(rhs);
+
+      if (is_number(lhs->type->kind) && is_number(rhs->type->kind) &&
+          (sub->kind != EX_LSHIFT && sub->kind != EX_RSHIFT)) {
+        expr->unary.sub->bop.rhs = new_expr_cast(lhs->type, expr->token, rhs);
+      }
+
+      expr->unary.sub = sub = sema_expr_keep_left(sub, false);
+      assert(sub->type != NULL);
+
+      sema_lval(expr->token, sub->bop.lhs, "Cannot assign");
+      if (!can_cast(sub->type, sub->bop.lhs->type, sub, false))
+        parse_error(expr->token, "Cannot assign");
+      expr->type = sub->bop.lhs->type;
     }
     break;
 
