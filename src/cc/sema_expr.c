@@ -180,11 +180,19 @@ static Expr *add_num(enum ExprKind kind, const Token *tok, Expr *lhs, Expr *rhs,
 }
 
 // pointer +|- num
-static Expr *add_ptr_num(enum ExprKind kind, const Token *token, Expr *ptr, Expr *num) {
-  const Type *ptr_type = ptr->type;
+static Expr *add_ptr_num(enum ExprKind kind, const Token *token, Expr *lhs, Expr *rhs) {
+  const Type *ptr_type;
+  const Type *ltype = lhs->type;
+  if (ltype->kind == TY_PTR || ltype->kind == TY_ARRAY) {
+    ptr_type = ltype;
+  } else {
+    assert(kind != EX_SUB);
+    ptr_type = rhs->type;
+  }
   if (ptr_type->kind == TY_ARRAY)
     ptr_type = array_to_ptr(ptr_type);
-  return new_expr_bop((enum ExprKind)(EX_PTRADD + (kind - EX_ADD)), ptr_type, token, ptr, num);
+  assert(ptr_type->kind == TY_PTR);
+  return new_expr_bop((enum ExprKind)(EX_PTRADD + (kind - EX_ADD)), ptr_type, token, lhs, rhs);
 }
 
 static Expr *add_expr_keep_left(const Token *tok, Expr *lhs, Expr *rhs, bool keep_left) {
@@ -199,7 +207,7 @@ static Expr *add_expr_keep_left(const Token *tok, Expr *lhs, Expr *rhs, bool kee
     switch (rtype->kind) {
     case TY_PTR: case TY_ARRAY:
       if (!keep_left)
-        return add_ptr_num(EX_ADD, tok, rhs, lhs);
+        return add_ptr_num(EX_ADD, tok, lhs, rhs);
       break;
     default:
       break;

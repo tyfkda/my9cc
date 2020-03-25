@@ -840,8 +840,14 @@ VReg *gen_expr(Expr *expr) {
   case EX_PTRSUB:
     {
       assert(expr->type->kind == TY_PTR);
-      VReg *lreg = gen_expr(expr->bop.lhs);
-      return gen_ptradd(expr->kind, expr->type, lreg, expr->bop.rhs);
+      if (expr->bop.lhs->type->kind == TY_PTR || expr->bop.lhs->type->kind == TY_ARRAY) {
+        VReg *lreg = gen_expr(expr->bop.lhs);
+        return gen_ptradd(expr->kind, expr->type, lreg, expr->bop.rhs);
+      } else {
+        assert(expr->bop.rhs->type->kind == TY_PTR || expr->bop.rhs->type->kind == TY_ARRAY);
+        VReg *rreg = gen_expr(expr->bop.rhs);
+        return gen_ptradd(expr->kind, expr->type, rreg, expr->bop.lhs);
+      }
     }
 
   default:
