@@ -206,9 +206,7 @@ static Expr *add_expr_keep_left(const Token *tok, Expr *lhs, Expr *rhs, bool kee
   case TY_NUM:
     switch (rtype->kind) {
     case TY_PTR: case TY_ARRAY:
-      if (!keep_left)
-        return add_ptr_num(EX_ADD, tok, lhs, rhs);
-      break;
+      return add_ptr_num(EX_ADD, tok, lhs, rhs);
     default:
       break;
     }
@@ -654,6 +652,8 @@ static Expr *sema_expr_keep_left(Expr *expr, bool keep_left) {
 
     case EX_ASSIGN_WITH:
       sema_lval(expr->token, expr->unary.sub->bop.lhs, "Cannot assign");
+      if (!can_cast(expr->unary.sub->type, expr->unary.sub->bop.lhs->type, expr->unary.sub, false))
+        parse_error(expr->token, "Cannot assign");
       expr->type = expr->unary.sub->bop.lhs->type;
       break;
 
