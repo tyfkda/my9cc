@@ -2,32 +2,11 @@
 
 XCC=${XCC:-../xcc}
 
-if [ "$(uname)" == 'Darwin' ]; then
-  PROLOGUE=$(cat <<EOS
+PROLOGUE=$(cat <<EOS
 extern void exit(int code);
 extern long write(int fd, const char *str, long len);
 EOS
-  )
-else
-  PROLOGUE=$(cat <<EOS
-void _start() {
-  __asm("mov (%rsp), %rdi");
-  __asm("lea 8(%rsp), %rsi");
-  __asm("call main");
-  __asm("mov %eax, %edi");
-  __asm("jmp exit");
-}
-void exit(int code) {
-  __asm("mov \$60, %eax");  // __NR_exit
-  __asm("syscall");
-}
-long write(int fd, const char *str, long len) {
-  __asm("mov \$1, %eax");  // __NR_write
-  __asm("syscall");
-}
-EOS
-  )
-fi
+)
 
 
 try_direct() {
@@ -39,7 +18,7 @@ try_direct() {
 
   local tmpfile=$(mktemp --suffix=.c)
   echo -e "$input" > $tmpfile
-  $XCC $tmpfile || exit 1
+  $XCC -c -oobj.o $tmpfile && gcc obj.o || exit 1
 
   ./a.out
   local actual="$?"
@@ -65,7 +44,7 @@ try_output_direct() {
 
   local tmpfile=$(mktemp --suffix=.c)
   echo -e "$input" > $tmpfile
-  $XCC $tmpfile || exit 1
+  $XCC -c -oobj.o $tmpfile && gcc obj.o || exit 1
 
   local actual
   actual=`./a.out` || exit 1
