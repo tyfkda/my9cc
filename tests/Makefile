@@ -114,9 +114,10 @@ PARSER_SRCS:=parser_test.c $(SRC_DIR)/parser_expr.c $(SRC_DIR)/lexer.c $(SRC_DIR
 parser_test:	$(PARSER_SRCS)
 	$(CC) -o$@ $(CFLAGS) $^
 
-VAL_SRCS:=../lib/crt0.c ../examples/util.c valtest.c
+VAL_SRCS:=../examples/util.c valtest.c  #../lib/crt0.c
 valtest:	$(VAL_SRCS) # $(XCC)
-	$(XCC) -o$@ $^
+	$(XCC) -c -o$@.o $^
+	gcc -o $@ $@.o
 
 FVAL_SRCS:=../lib/crt0.c ../examples/util.c ../lib/math.c fvaltest.c
 dvaltest:	$(FVAL_SRCS) flotest.inc # $(XCC)
