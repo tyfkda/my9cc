@@ -248,13 +248,13 @@ static VReg *gen_lval(Expr *expr) {
       const Vector *members = type->struct_.info->members;
 
       const Type *targetType = type;
-      const Token *ident = expr->member.ident;
-      const Name *name = ident->ident;
+      const Name *name = expr->member.name;
       int index = var_find(members, name);
       if (index < 0) {
         Vector *stack = new_vector();
-        bool res = search_from_anonymous(targetType, ident->ident, ident, stack);
-        assert(res);
+        const VarInfo *res = search_from_anonymous(targetType, name, expr->member.ident, stack);
+        UNUSED(res);
+        assert(res != NULL);
         assert(stack->len >= 1);
 
         const Type *type = targetType;
@@ -263,13 +263,6 @@ static VReg *gen_lval(Expr *expr) {
           reg = gen_member_access(reg, type->struct_.info, index);
         }
         return reg;
-        /*
-          const VarInfo *member = type->struct_.info->members->data[index];
-          type = member->type;
-          p = new_expr_member(acctok, type, p, NULL, index);
-        }
-        expr = p;
-        */
       } else {
         return gen_member_access(reg, type->struct_.info, index);
       }

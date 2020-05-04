@@ -78,13 +78,12 @@ Expr *new_expr_ternary(const Token *token, Expr *cond, Expr *tval, Expr *fval, c
   return expr;
 }
 
-Expr *new_expr_member(const Token *token, const Type *type, Expr *target, const Token *ident,
-                      int index) {
+Expr *new_expr_member(const Token *token, const Type *type, Expr *target, const Name *name,
+                      const Token *ident) {
   Expr *expr = new_expr(EX_MEMBER, type, token);
   expr->member.target = target;
+  expr->member.name = name;
   expr->member.ident = ident;
-  //expr->member.index = index;
-  UNUSED(index);
   return expr;
 }
 

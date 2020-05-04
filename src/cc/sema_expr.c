@@ -720,8 +720,7 @@ static Expr *sema_expr_keep_left(Expr *expr, bool keep_left) {
       assert(target->type != NULL);
 
       const Token *acctok = expr->token;
-      const Token *ident = expr->member.ident;
-      const Name *name = ident->ident;
+      const Name *name = expr->member.name;
 
       // Find member's type from struct info.
       const Type *targetType = target->type;
@@ -739,27 +738,17 @@ static Expr *sema_expr_keep_left(Expr *expr, bool keep_left) {
           parse_error(acctok, "`->' for non struct value");
       }
 
-      ensure_struct((Type*)targetType, ident);
+      ensure_struct((Type*)targetType, expr->member.ident);
       int index = var_find(targetType->struct_.info->members, name);
       if (index >= 0) {
         const VarInfo *member = targetType->struct_.info->members->data[index];
         expr->type = member->type;
         //expr->member.index = index;
       } else {
-        const VarInfo *member = search_from_anonymous(targetType, ident->ident, ident, NULL);
+        const VarInfo *member = search_from_anonymous(targetType, name, expr->member.ident, NULL);
         if (member == NULL)
-          parse_error(ident, "`%.*s' doesn't exist in the struct", name->bytes, name->chars);
-        /*
-        Expr *p = target;
-        const Type *type = targetType;
-        for (int i = 0; i < stack->len; ++i) {
-          int index = (int)(long)stack->data[i];
-          const VarInfo *member = type->struct_.info->members->data[index];
-          type = member->type;
-          p = new_expr_member(acctok, type, p, NULL, index);
-        }
-        expr = p;
-        */
+          parse_error(expr->member.ident, "`%.*s' doesn't exist in the struct", name->bytes, name->chars);
+        expr->type = member->type;
       }
     }
     break;

@@ -56,7 +56,7 @@ static Expr *parse_array_index(const Token *token, Expr *array) {
 
 static Expr *parse_member_access(Expr *target, Token *acctok) {
   Token *ident = consume(TK_IDENT, "`ident' expected");
-  return new_expr_member(acctok, NULL, target, ident, -1);
+  return new_expr_member(acctok, NULL, target, ident->ident, ident);
 }
 
 static const Type *parse_enum(void) {
