@@ -26,7 +26,10 @@ CPP_OBJS:=$(addprefix $(OBJ_DIR)/,$(notdir $(CPP_SRCS:.c=.o)))
 AS_OBJS:=$(addprefix $(OBJ_DIR)/,$(notdir $(AS_SRCS:.c=.o)))
 
 .PHONY: all
-all:	xcc cc1 cpp as
+all:	gen1
+
+.PHONY: gen1
+gen1:	xcc cc1 cpp as
 
 .PHONY: release
 release:
@@ -75,7 +78,7 @@ test-all: test test-gen2 diff-gen23
 
 .PHONY: clean
 clean:
-	rm -rf cc1 cpp as xcc $(OBJ_DIR) a.out gen2 gen3 tmp.s
+	rm -rf cc1 cpp as xcc $(OBJ_DIR) a.out gen2 gen3 genobj tmp.s
 	$(MAKE) -C tests clean
 
 ### Self hosting
@@ -123,3 +126,40 @@ $(TARGET)/xcc:	$(HOST)/xcc $(AS_SRCS)
 	mkdir -p $(TARGET)
 	$(HOST)/xcc -o$@ -Iinc -I$(UTIL_DIR) -DSELF_HOSTING $(XCC_SRCS) \
 	      $(LIB_SRCS)
+
+###
+
+.PHONY: genobj
+genobj:	genobj/cpp genobj/cc1 genobj/as genobj/xcc
+
+genobj/cpp:	gen1 $(CPP_SRCS)
+	@mkdir -p genobj/cppobj
+	@rm -rf genobj/cppobj/*.o
+	@for src in $(CPP_SRCS); do\
+	  echo $$src && ./xcc -c -ogenobj/cppobj/`basename $$src | sed -e s/\\\\.c$$/\\\\.o/` -Iinc -I$(CC1_DIR) -I$(UTIL_DIR) -DSELF_HOSTING -DNDEBUG $$src;\
+	done
+	gcc -o $@ genobj/cppobj/*.o
+
+genobj/cc1:	gen1 $(CC1_SRCS)
+	@mkdir -p genobj/cc1obj
+	@rm -rf genobj/cc1obj/*.o
+	@for src in $(CC1_SRCS); do\
+	  echo $$src && ./xcc -c -ogenobj/cc1obj/`basename $$src | sed -e s/\\\\.c$$/\\\\.o/` -Iinc -I$(UTIL_DIR) -DSELF_HOSTING -DNDEBUG $$src;\
+	done
+	gcc -o $@ genobj/cc1obj/*.o
+
+genobj/as:	gen1 $(AS_SRCS)
+	@mkdir -p genobj/asobj
+	@rm -rf genobj/asobj/*.o
+	@for src in $(AS_SRCS); do\
+	  echo $$src && ./xcc -c -ogenobj/asobj/`basename $$src | sed -e s/\\\\.c$$/\\\\.o/` -Iinc -I$(UTIL_DIR) -DSELF_HOSTING -DNDEBUG $$src;\
+	done
+	gcc -o $@ genobj/asobj/*.o
+
+genobj/xcc:	gen1 $(XCC_SRCS)
+	@mkdir -p genobj/xccobj
+	@rm -rf genobj/xccobj/*.o
+	@for src in $(XCC_SRCS); do\
+	  echo $$src && ./xcc -c -ogenobj/xccobj/`basename $$src | sed -e s/\\\\.c$$/\\\\.o/` -Iinc -I$(UTIL_DIR) -DSELF_HOSTING -DNDEBUG $$src;\
+	done
+	gcc -o $@ genobj/xccobj/*.o
