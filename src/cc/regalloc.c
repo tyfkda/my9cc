@@ -75,7 +75,6 @@ static void three_to_two(BB *bb) {
         ir2->dst = ir->dst;
         ir2->opr1 = ir->opr1;
         ir2->opr2 = NULL;
-        ir2->size = ir->size;
         vec_insert(irs, i, ir2);
 
         ir->opr1 = ir->dst;

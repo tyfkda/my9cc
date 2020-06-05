@@ -74,7 +74,6 @@ static IR *new_ir(enum IrKind kind) {
   IR *ir = malloc(sizeof(*ir));
   ir->kind = kind;
   ir->dst = ir->opr1 = ir->opr2 = NULL;
-  ir->size = -1;
   if (curbb != NULL)
     vec_push(curbb->irs, ir);
   return ir;
@@ -218,7 +217,6 @@ VReg *new_ir_bop(enum IrKind kind, VReg *opr1, VReg *opr2, const VRegType *vtype
   IR *ir = new_ir(kind);
   ir->opr1 = opr1;
   ir->opr2 = opr2;
-  ir->size = vtype->size;
   return ir->dst = reg_alloc_spawn(curra, vtype, 0);
 }
 
@@ -236,7 +234,6 @@ VReg *new_ir_unary(enum IrKind kind, VReg *opr, const VRegType *vtype) {
 
   IR *ir = new_ir(kind);
   ir->opr1 = opr;
-  ir->size = vtype->size;
   return ir->dst = reg_alloc_spawn(curra, vtype, 0);
 }
 
@@ -244,7 +241,6 @@ VReg *new_ir_ptradd(int offset, VReg *base, VReg *index, int scale, const VRegTy
   IR *ir = new_ir(IR_PTRADD);
   ir->opr1 = base;
   ir->opr2 = index;
-  ir->size = vtype->size;
   ir->ptradd.offset = offset;
   ir->ptradd.scale = scale;
   return ir->dst = reg_alloc_spawn(curra, vtype, 0);
@@ -253,7 +249,6 @@ VReg *new_ir_ptradd(int offset, VReg *base, VReg *index, int scale, const VRegTy
 VReg *new_ir_bofs(VReg *src) {
   IR *ir = new_ir(IR_BOFS);
   ir->opr1 = src;
-  ir->size = WORD_SIZE;
   return ir->dst = reg_alloc_spawn(curra, &vtVoidPtr, 0);
 }
 
@@ -261,42 +256,37 @@ VReg *new_ir_iofs(const Name *label, bool global) {
   IR *ir = new_ir(IR_IOFS);
   ir->iofs.label = label;
   ir->iofs.global = global;
-  ir->size = WORD_SIZE;
   return ir->dst = reg_alloc_spawn(curra, &vtVoidPtr, 0);
 }
 
 VReg *new_ir_sofs(VReg *src) {
   IR *ir = new_ir(IR_SOFS);
   ir->opr1 = src;
-  ir->size = WORD_SIZE;
   return ir->dst = reg_alloc_spawn(curra, &vtVoidPtr, 0);
 }
 
-void new_ir_store(VReg *dst, VReg *src, int size) {
+void new_ir_store(VReg *dst, VReg *src) {
   IR *ir = new_ir(IR_STORE);
   ir->opr1 = src;
-  ir->size = size;
   ir->opr2 = dst;  // `dst` is used by indirect, so it is not actually `dst`.
 }
 
-void new_ir_cmp(VReg *opr1, VReg *opr2, int size) {
+void new_ir_cmp(VReg *opr1, VReg *opr2) {
   IR *ir = new_ir(IR_CMP);
   ir->opr1 = opr1;
   ir->opr2 = opr2;
-  ir->size = size;
 }
 
-void new_ir_test(VReg *reg, int size) {
+void new_ir_test(VReg *reg) {
   IR *ir = new_ir(IR_TEST);
   ir->opr1 = reg;
-  ir->size = size;
 }
 
 void new_ir_incdec(enum IrKind kind, VReg *reg, int size, intptr_t value) {
   IR *ir = new_ir(kind);
   ir->opr1 = reg;
-  ir->size = size;
   ir->value = value;
+  ir->incdec.size = size;
 }
 
 VReg *new_ir_cond(enum ConditionKind cond) {
@@ -311,10 +301,9 @@ void new_ir_jmp(enum ConditionKind cond, BB *bb) {
   ir->jmp.cond = cond;
 }
 
-void new_ir_pusharg(VReg *vreg, const VRegType *vtype) {
+void new_ir_pusharg(VReg *vreg) {
   IR *ir = new_ir(IR_PUSHARG);
   ir->opr1 = vreg;
-  ir->size = vtype->size;
 }
 
 IR *new_ir_precall(int arg_count, int stack_args_size) {
@@ -332,14 +321,12 @@ VReg *new_ir_call(const Name *label, bool global, VReg *freg, int arg_count, con
   ir->opr1 = freg;
   ir->call.precall = precall;
   ir->call.arg_count = arg_count;
-  ir->size = result_type->size;
   return ir->dst = reg_alloc_spawn(curra, result_type, 0);
 }
 
-void new_ir_result(VReg *reg, int size) {
+void new_ir_result(VReg *reg) {
   IR *ir = new_ir(IR_RESULT);
   ir->opr1 = reg;
-  ir->size = size;
 }
 
 void new_ir_addsp(int value) {
@@ -350,30 +337,28 @@ void new_ir_addsp(int value) {
 VReg *new_ir_cast(VReg *vreg, const VRegType *dsttype, int srcsize, bool is_unsigned) {
   IR *ir = new_ir(IR_CAST);
   ir->opr1 = vreg;
-  ir->size = dsttype->size;
   ir->cast.srcsize = srcsize;
   ir->cast.is_unsigned = is_unsigned;
   return ir->dst = reg_alloc_spawn(curra, dsttype, 0);
 }
 
-void new_ir_mov(VReg *dst, VReg *src, int size) {
+void new_ir_mov(VReg *dst, VReg *src) {
   IR *ir = new_ir(IR_MOV);
   ir->dst = dst;
   ir->opr1 = src;
-  ir->size = size;
 }
 
-void new_ir_memcpy(VReg *dst, VReg *src, int size) {
+void new_ir_memcpy(VReg *dst, VReg *src, size_t size) {
   IR *ir = new_ir(IR_MEMCPY);
   ir->opr1 = src;
   ir->opr2 = dst;
-  ir->size = size;
+  ir->memcpy.size = size;
 }
 
 void new_ir_clear(VReg *reg, size_t size) {
   IR *ir = new_ir(IR_CLEAR);
-  ir->size = size;
   ir->opr1 = reg;
+  ir->clear.size = size;
 }
 
 void new_ir_asm(const char *asm_) {
@@ -384,15 +369,14 @@ void new_ir_asm(const char *asm_) {
 IR *new_ir_load_spilled(VReg *reg, int offset, int size) {
   IR *ir = new_ir(IR_LOAD_SPILLED);
   ir->value = offset;
-  ir->size = size;
   ir->dst = reg;
+  ir->load_spilled.size = size;
   return ir;
 }
 
-IR *new_ir_store_spilled(VReg *reg, int offset, int size) {
+IR *new_ir_store_spilled(VReg *reg, int offset) {
   IR *ir = new_ir(IR_STORE_SPILLED);
   ir->value = offset;
-  ir->size = size;
   ir->opr1 = reg;
   return ir;
 }
@@ -462,8 +446,8 @@ static void ir_out(IR *ir) {
   case IR_LOAD:
     {
       assert(!(ir->opr1->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       MOV(INDIRECT(kReg64s[ir->opr1->r], NULL, 1), regs[ir->dst->r]);
@@ -474,8 +458,8 @@ static void ir_out(IR *ir) {
     {
       assert(!(ir->opr1->flag & VRF_CONST));
       assert(!(ir->opr2->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->opr1->vtype->size && ir->opr1->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->opr1->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       MOV(regs[ir->opr1->r], INDIRECT(kReg64s[ir->opr2->r], NULL, 1));
@@ -486,8 +470,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->opr1->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr2->flag & VRF_CONST)
@@ -501,8 +485,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->opr1->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr2->flag & VRF_CONST)
@@ -514,8 +498,8 @@ static void ir_out(IR *ir) {
 
   case IR_PTRADD:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       VReg *base = ir->opr1;
@@ -537,9 +521,9 @@ static void ir_out(IR *ir) {
 
   case IR_MUL:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
       assert(!(ir->opr1->flag & VRF_CONST));
-      int pow = kPow2Table[ir->size];
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       const char *a = kRegATable[pow];
@@ -559,7 +543,7 @@ static void ir_out(IR *ir) {
   case IR_DIV:
   case IR_DIVU:
     assert(!(ir->opr1->flag & VRF_CONST));
-    if (ir->size == 1) {
+    if (ir->dst->vtype->size == 1) {
       if (ir->kind == IR_DIV) {
         MOVSX(kReg8s[ir->opr1->r], AX);
         const char *opr2;
@@ -583,8 +567,8 @@ static void ir_out(IR *ir) {
       }
       MOV(AL, kReg8s[ir->dst->r]);
     } else {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->opr1->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       const char *a = kRegATable[pow];
@@ -620,7 +604,7 @@ static void ir_out(IR *ir) {
   case IR_MOD:
   case IR_MODU:
     assert(!(ir->opr1->flag & VRF_CONST));
-    if (ir->size == 1) {
+    if (ir->opr1->vtype->size == 1) {
       if (ir->kind == IR_MOD) {
         MOVSX(kReg8s[ir->opr1->r], AX);
         const char *opr2;
@@ -644,8 +628,8 @@ static void ir_out(IR *ir) {
       }
       MOV(AH, kReg8s[ir->dst->r]);
     } else {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->opr1->vtype->size && ir->opr1->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->opr1->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       const char *a = kRegATable[pow];
@@ -683,8 +667,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->opr1->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr2->flag & VRF_CONST)
@@ -698,8 +682,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->opr1->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr2->flag & VRF_CONST)
@@ -713,8 +697,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->opr1->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr2->flag & VRF_CONST)
@@ -728,8 +712,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->opr1->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr2->flag & VRF_CONST) {
@@ -744,8 +728,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->opr1->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr2->flag & VRF_CONST) {
@@ -759,8 +743,8 @@ static void ir_out(IR *ir) {
 
   case IR_CMP:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->opr1->vtype->size && ir->opr1->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->opr1->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       const char *opr1;
@@ -780,7 +764,7 @@ static void ir_out(IR *ir) {
       assert(!(ir->opr1->flag & VRF_CONST));
       const char *reg = INDIRECT(kReg64s[ir->opr1->r], NULL, 1);
       if (ir->value == 1) {
-        switch (ir->size) {
+        switch (ir->incdec.size) {
         case 1:  INCB(reg); break;
         case 2:  INCW(reg); break;
         case 4:  INCL(reg); break;
@@ -788,7 +772,7 @@ static void ir_out(IR *ir) {
         default:  assert(false); break;
         }
       } else {
-        assert(ir->size == 8);
+        assert(ir->incdec.size == 8);
         intptr_t value = ir->value;
         if (value <= ((1L << 31) - 1)) {
           ADDQ(IM(value), reg);
@@ -805,7 +789,7 @@ static void ir_out(IR *ir) {
       assert(!(ir->opr1->flag & VRF_CONST));
       const char *reg = INDIRECT(kReg64s[ir->opr1->r], NULL, 1);
       if (ir->value == 1) {
-        switch (ir->size) {
+        switch (ir->incdec.size) {
         case 1:  DECB(reg); break;
         case 2:  DECW(reg); break;
         case 4:  DECL(reg); break;
@@ -813,7 +797,7 @@ static void ir_out(IR *ir) {
         default:  assert(false); break;
         }
       } else {
-        assert(ir->size == 8);
+        assert(ir->incdec.size == 8);
         intptr_t value = ir->value;
         if (value <= ((1L << 31) - 1)) {
           SUBQ(IM(value), reg);
@@ -829,8 +813,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->dst->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       NEG(regs[ir->dst->r]);
@@ -839,9 +823,9 @@ static void ir_out(IR *ir) {
 
   case IR_NOT:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
+      assert(0 <= ir->opr1->vtype->size && ir->opr1->vtype->size < kPow2TableSize);
       assert(!(ir->opr1->flag & VRF_CONST));
-      int pow = kPow2Table[ir->size];
+      int pow = kPow2Table[ir->opr1->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       const char *opr1 = regs[ir->opr1->r];
@@ -856,8 +840,8 @@ static void ir_out(IR *ir) {
     {
       assert(ir->dst->r == ir->opr1->r);
       assert(!(ir->dst->flag & VRF_CONST));
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       NOT(regs[ir->dst->r]);
@@ -887,8 +871,8 @@ static void ir_out(IR *ir) {
 
   case IR_TEST:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->opr1->vtype->size && ir->opr1->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->opr1->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       const char *opr1;
@@ -974,8 +958,8 @@ static void ir_out(IR *ir) {
       POP(R11); POP_STACK_POS();
       POP(R10); POP_STACK_POS();
 
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       MOV(kRegATable[pow], regs[ir->dst->r]);
@@ -984,8 +968,8 @@ static void ir_out(IR *ir) {
 
   case IR_RESULT:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->opr1->vtype->size && ir->opr1->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->opr1->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr1->flag & VRF_CONST)
@@ -1005,14 +989,14 @@ static void ir_out(IR *ir) {
 
   case IR_CAST:
     if (ir->opr1->flag & VRF_CONST) {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int powd = kPow2Table[ir->size];
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+      int powd = kPow2Table[ir->dst->vtype->size];
       MOV(im(ir->opr1->r), kRegSizeTable[powd][ir->dst->r]);
     } else {
-      if (ir->size <= ir->cast.srcsize) {
+      if (ir->dst->vtype->size <= ir->cast.srcsize) {
         if (ir->dst->r != ir->opr1->r) {
-          assert(0 <= ir->size && ir->size < kPow2TableSize);
-          int pow = kPow2Table[ir->size];
+          assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+          int pow = kPow2Table[ir->dst->vtype->size];
           assert(0 <= pow && pow < 4);
           const char **regs = kRegSizeTable[pow];
           MOV(regs[ir->opr1->r], regs[ir->dst->r]);
@@ -1020,8 +1004,8 @@ static void ir_out(IR *ir) {
       } else {
         assert(0 <= ir->cast.srcsize && ir->cast.srcsize < kPow2TableSize);
         int pows = kPow2Table[ir->cast.srcsize];
-        assert(0 <= ir->size && ir->size < kPow2TableSize);
-        int powd = kPow2Table[ir->size];
+        assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
+        int powd = kPow2Table[ir->dst->vtype->size];
         assert(0 <= pows && pows < 4);
         assert(0 <= powd && powd < 4);
         if (ir->cast.is_unsigned) {
@@ -1040,9 +1024,9 @@ static void ir_out(IR *ir) {
 
   case IR_MOV:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
+      assert(0 <= ir->dst->vtype->size && ir->dst->vtype->size < kPow2TableSize);
       assert(!(ir->dst->flag & VRF_CONST));
-      int pow = kPow2Table[ir->size];
+      int pow = kPow2Table[ir->dst->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       if (ir->opr1->flag & VRF_CONST) {
@@ -1057,7 +1041,7 @@ static void ir_out(IR *ir) {
   case IR_MEMCPY:
     assert(!(ir->opr1->flag & VRF_CONST));
     assert(!(ir->opr2->flag & VRF_CONST));
-    ir_memcpy(ir->opr2->r, ir->opr1->r, ir->size);
+    ir_memcpy(ir->opr2->r, ir->opr1->r, ir->memcpy.size);
     break;
 
   case IR_CLEAR:
@@ -1065,7 +1049,7 @@ static void ir_out(IR *ir) {
       assert(!(ir->opr1->flag & VRF_CONST));
       const char *loop = fmt_name(alloc_label());
       MOV(kReg64s[ir->opr1->r], RSI);
-      MOV(IM(ir->size), EDI);
+      MOV(IM(ir->clear.size), EDI);
       XOR(AL, AL);
       EMIT_LABEL(loop);
       MOV(AL, INDIRECT(RSI, NULL, 1));
@@ -1081,8 +1065,8 @@ static void ir_out(IR *ir) {
 
   case IR_LOAD_SPILLED:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->load_spilled.size && ir->load_spilled.size < kPow2TableSize);
+      int pow = kPow2Table[ir->load_spilled.size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       MOV(OFFSET_INDIRECT(ir->value, RBP, NULL, 1), regs[SPILLED_REG_NO]);
@@ -1091,8 +1075,8 @@ static void ir_out(IR *ir) {
 
   case IR_STORE_SPILLED:
     {
-      assert(0 <= ir->size && ir->size < kPow2TableSize);
-      int pow = kPow2Table[ir->size];
+      assert(0 <= ir->opr1->vtype->size && ir->opr1->vtype->size < kPow2TableSize);
+      int pow = kPow2Table[ir->opr1->vtype->size];
       assert(0 <= pow && pow < 4);
       const char **regs = kRegSizeTable[pow];
       MOV(regs[SPILLED_REG_NO], OFFSET_INDIRECT(ir->value, RBP, NULL, 1));

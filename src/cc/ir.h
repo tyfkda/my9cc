@@ -104,7 +104,6 @@ typedef struct IR {
   VReg *dst;
   VReg *opr1;
   VReg *opr2;
-  int size;
   intptr_t value;
 
   union {
@@ -112,6 +111,9 @@ typedef struct IR {
       const Name *label;
       bool global;
     } iofs;
+    struct {
+      int size;
+    } incdec;
     struct {
       int offset;
       int scale;
@@ -139,8 +141,17 @@ typedef struct IR {
       bool is_unsigned;
     } cast;
     struct {
+      size_t size;
+    } memcpy;
+    struct {
+      size_t size;
+    } clear;
+    struct {
       const char *str;
     } asm_;
+    struct {
+      int size;
+    } load_spilled;
   };
 } IR;
 
@@ -148,28 +159,28 @@ VReg *new_const_vreg(intptr_t value, const VRegType *vtype);
 VReg *new_ir_bop(enum IrKind kind, VReg *opr1, VReg *opr2, const VRegType *vtype);
 VReg *new_ir_unary(enum IrKind kind, VReg *opr, const VRegType *vtype);
 VReg *new_ir_ptradd(int offset, VReg *base, VReg *index, int scale, const VRegType *vtype);
-void new_ir_mov(VReg *dst, VReg *src, int size);
+void new_ir_mov(VReg *dst, VReg *src);
 VReg *new_ir_bofs(VReg *src);
 VReg *new_ir_iofs(const Name *label, bool global);
 VReg *new_ir_sofs(VReg *src);
-void new_ir_store(VReg *dst, VReg *src, int size);
-void new_ir_cmp(VReg *opr1, VReg *opr2, int size);
-void new_ir_test(VReg *reg, int size);
+void new_ir_store(VReg *dst, VReg *src);
+void new_ir_cmp(VReg *opr1, VReg *opr2);
+void new_ir_test(VReg *reg);
 void new_ir_incdec(enum IrKind kind, VReg *reg, int size, intptr_t value);
 VReg *new_ir_cond(enum ConditionKind cond);
 void new_ir_jmp(enum ConditionKind cond, BB *bb);
 IR *new_ir_precall(int arg_count, int stack_args_size);
-void new_ir_pusharg(VReg *vreg, const VRegType *vtype);
+void new_ir_pusharg(VReg *vreg);
 VReg *new_ir_call(const Name *label, bool global, VReg *freg, int arg_count, const VRegType *result_type, IR *precall);
-void new_ir_result(VReg *reg, int size);
+void new_ir_result(VReg *reg);
 void new_ir_addsp(int value);
 VReg *new_ir_cast(VReg *vreg, const VRegType *dsttype, int srcsize, bool is_unsigned);
-void new_ir_memcpy(VReg *dst, VReg *src, int size);
+void new_ir_memcpy(VReg *dst, VReg *src, size_t size);
 void new_ir_clear(VReg *reg, size_t size);
 void new_ir_asm(const char *asm_);
 
 IR *new_ir_load_spilled(VReg *reg, int offset, int size);
-IR *new_ir_store_spilled(VReg *reg, int offset, int size);
+IR *new_ir_store_spilled(VReg *reg, int offset);
 
 // Register allocator
 
