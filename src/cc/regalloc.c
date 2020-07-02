@@ -12,6 +12,8 @@
 #include "util.h"
 #include "var.h"
 
+#include "table.h"
+
 #if (defined(__linux__) || defined(__APPLE__)) && !defined(__XCC) && !defined(__XV6)
 #define USE_ALLOCA
 #endif
@@ -541,6 +543,30 @@ void alloc_physical_registers(RegAlloc *ra, BBContainer *bbcon) {
   assert(ra->phys_max + ra->fphys_max < (int)(sizeof(ra->used_reg_bits) * CHAR_BIT));
 #endif
   analyze_reg_flow(bbcon);
+  {
+    fprintf(stderr, "BB: #%d\n", bbcon->bbs->len);
+    for (int i = 0; i < bbcon->bbs->len; ++i) {
+      BB *bb = bbcon->bbs->data[i];
+      fprintf(stderr, "BB%3d: %.*s\n", i, bb->label->bytes, bb->label->chars);
+      fprintf(stderr, "  in : #%d, [", bb->in_regs->len);
+      for (int j = 0; j < bb->in_regs->len; ++j) {
+        if (j > 0)
+          fprintf(stderr, ", ");
+        VReg *vreg = bb->in_regs->data[j];
+        fprintf(stderr, "%d", vreg->virt);
+      }
+      fprintf(stderr, "]\n");
+
+      fprintf(stderr, "  out: #%d, [", bb->out_regs->len);
+      for (int j = 0; j < bb->out_regs->len; ++j) {
+        if (j > 0)
+          fprintf(stderr, ", ");
+        VReg *vreg = bb->out_regs->data[j];
+        fprintf(stderr, "%d", vreg->virt);
+      }
+      fprintf(stderr, "]\n");
+    }
+  }
 
   int vreg_count = ra->vregs->len;
   LiveInterval *intervals;
