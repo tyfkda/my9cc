@@ -103,24 +103,29 @@ self-hosting:	$(TARGET)/cpp $(TARGET)/cc1 $(TARGET)/as $(TARGET)/xcc
 test-self-hosting:
 	$(MAKE) EXE_DIR=$(TARGET) -C tests clean cc-tests
 
-LIB_SRCS:= lib/lib.c lib/assert.c lib/umalloc.c lib/sprintf.c lib/crt0.c
+#LIB_SRCS:= lib/lib.c lib/assert.c lib/umalloc.c lib/sprintf.c lib/crt0.c
+LIB_SRCS:= lib/assert.c
 
 $(TARGET)/cpp:	$(HOST)/cc1 $(HOST)/cpp $(CPP_SRCS)
 	mkdir -p $(TARGET)
-	$(HOST)/xcc -o$@ -Iinc -I$(CC1_DIR) -I$(UTIL_DIR) -DSELF_HOSTING $(CPP_SRCS) \
+	$(HOST)/xcc -o$(TARGET)/cpp.o -c -Iinc -I$(CC1_DIR) -I$(UTIL_DIR) -DSELF_HOSTING $(CPP_SRCS) \
 	      $(LIB_SRCS)
+	gcc -o$@ $(TARGET)/cpp.o
 
 $(TARGET)/cc1:	$(HOST)/xcc $(CC1_SRCS)
 	mkdir -p $(TARGET)
-	$(HOST)/xcc -o$@ -Iinc -I$(UTIL_DIR) -DSELF_HOSTING $(CC1_SRCS) \
+	$(HOST)/xcc -o$(TARGET)/cc.o -c -Iinc -I$(UTIL_DIR) -DSELF_HOSTING $(CC1_SRCS) \
 	      $(LIB_SRCS)
+	gcc -o$@ $(TARGET)/cc.o
 
 $(TARGET)/as:	$(HOST)/xcc $(AS_SRCS)
 	mkdir -p $(TARGET)
-	$(HOST)/xcc -o$@ -Iinc -I$(UTIL_DIR) -DSELF_HOSTING $(AS_SRCS) \
+	$(HOST)/xcc -o$(TARGET)/as.o -c -Iinc -I$(UTIL_DIR) -DSELF_HOSTING $(AS_SRCS) \
 	      $(LIB_SRCS)
+	gcc -o$@ $(TARGET)/as.o
 
 $(TARGET)/xcc:	$(HOST)/xcc $(AS_SRCS)
 	mkdir -p $(TARGET)
-	$(HOST)/xcc -o$@ -Iinc -I$(UTIL_DIR) -DSELF_HOSTING $(XCC_SRCS) \
+	$(HOST)/xcc -o$(TARGET)/xcc.o -c -Iinc -I$(UTIL_DIR) -DSELF_HOSTING $(XCC_SRCS) \
 	      $(LIB_SRCS)
+	gcc -o$@ $(TARGET)/xcc.o
