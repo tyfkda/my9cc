@@ -132,34 +132,36 @@ $(TARGET)/xcc:	$(HOST)/xcc $(AS_SRCS)
 .PHONY: genobj
 genobj:	genobj/cpp genobj/cc1 genobj/as genobj/xcc
 
-genobj/cpp:	gen1 $(CPP_SRCS)
+GENOBJ_SRC=lib/sprintf.c
+
+genobj/cpp:	gen1 $(CPP_SRCS) $(GENOBJ_SRC)
 	@mkdir -p genobj/cppobj
 	@rm -rf genobj/cppobj/*.o
-	@for src in $(CPP_SRCS); do\
+	@for src in $(CPP_SRCS) $(GENOBJ_SRC); do\
 	  echo $$src && ./xcc -c -ogenobj/cppobj/`basename $$src | sed -e s/\\\\.c$$/\\\\.o/` -Iinc -I$(CC1_DIR) -I$(UTIL_DIR) -DSELF_HOSTING -DNDEBUG $$src;\
 	done
 	gcc -o $@ genobj/cppobj/*.o
 
-genobj/cc1:	gen1 $(CC1_SRCS)
+genobj/cc1:	gen1 $(CC1_SRCS) $(GENOBJ_SRC)
 	@mkdir -p genobj/cc1obj
 	@rm -rf genobj/cc1obj/*.o
-	@for src in $(CC1_SRCS); do\
+	@for src in $(CC1_SRCS) $(GENOBJ_SRC); do\
 	  echo $$src && ./xcc -c -ogenobj/cc1obj/`basename $$src | sed -e s/\\\\.c$$/\\\\.o/` -Iinc -I$(UTIL_DIR) -DSELF_HOSTING -DNDEBUG $$src;\
 	done
 	gcc -o $@ genobj/cc1obj/*.o
 
-genobj/as:	gen1 $(AS_SRCS)
+genobj/as:	gen1 $(AS_SRCS) $(GENOBJ_SRC)
 	@mkdir -p genobj/asobj
 	@rm -rf genobj/asobj/*.o
-	@for src in $(AS_SRCS); do\
+	@for src in $(AS_SRCS) $(GENOBJ_SRC); do\
 	  echo $$src && ./xcc -c -ogenobj/asobj/`basename $$src | sed -e s/\\\\.c$$/\\\\.o/` -Iinc -I$(UTIL_DIR) -DSELF_HOSTING -DNDEBUG $$src;\
 	done
 	gcc -o $@ genobj/asobj/*.o
 
-genobj/xcc:	gen1 $(XCC_SRCS)
+genobj/xcc:	gen1 $(XCC_SRCS) $(GENOBJ_SRC)
 	@mkdir -p genobj/xccobj
 	@rm -rf genobj/xccobj/*.o
-	@for src in $(XCC_SRCS); do\
+	@for src in $(XCC_SRCS) $(GENOBJ_SRC); do\
 	  echo $$src && ./xcc -c -ogenobj/xccobj/`basename $$src | sed -e s/\\\\.c$$/\\\\.o/` -Iinc -I$(UTIL_DIR) -DSELF_HOSTING -DNDEBUG $$src;\
 	done
 	gcc -o $@ genobj/xccobj/*.o
