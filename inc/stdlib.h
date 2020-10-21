@@ -2,6 +2,9 @@
 
 #include "stddef.h"  // size_t
 
+#define EXIT_SUCCESS  (0)
+#define EXIT_FAILURE  (1)
+
 int atoi(const char* s);
 void *malloc(size_t size);
 void free(void* ptr);
@@ -20,3 +23,8 @@ double strtod(const char* /*restrict*/ p, char ** /*restrict*/ pp);
 double drand48(void);
 double erand48(unsigned short xsubi[3]);
 #endif
+
+int abs(int x);
+void abort(void);
+char *getenv(const char *name);
+int system(const char *string);

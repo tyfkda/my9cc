@@ -23,4 +23,10 @@ double frexp(double x, int *p);
 int isfinite(double x);
 int isnan(double x);
 int isinf(double x);
+
+double asin(double);
+double acos(double);
+double atan2(double, double);
+double log2(double);
+double log10(double);
 #endif
