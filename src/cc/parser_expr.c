@@ -537,7 +537,7 @@ static Expr *parse_member_access(Expr *target, Token *acctok) {
   }
 
   ensure_struct((Type*)targetType, ident);
-  int index = var_find(targetType->struct_.info->members, name);
+  int index = find_struct_member(targetType->struct_.info->members, name);
   if (index >= 0) {
     const VarInfo *member = targetType->struct_.info->members->data[index];
     return new_expr_member(acctok, member->type, target, ident, index);
@@ -915,7 +915,7 @@ static StructInfo *parse_struct(bool is_union) {
           parse_error(NULL, "`ident' expected");
       }
       const Name *name = ident != NULL ? ident->ident : NULL;
-      var_add(members, name, type, flag, ident);
+      add_struct_member(members, name, type, flag, ident);
 
       if (match(TK_COMMA))
         continue;

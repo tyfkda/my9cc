@@ -8,6 +8,7 @@
 #include <sys/types.h>  // ssize_t
 
 typedef struct Name Name;
+typedef struct Token Token;
 typedef struct Vector Vector;
 
 // Fixnum
@@ -97,6 +98,9 @@ Type *new_func_type(const Type *ret, Vector *params, Vector *param_types, bool v
 
 // Struct
 
-StructInfo *create_struct(Vector *members, bool is_union);  // members: <VarInfo*>
+void add_struct_member(Vector *members, const Name *name, const Type *type, int flag,
+                       const Token *ident);
+StructInfo *create_struct(Vector *members, bool is_union);
+int find_struct_member(const Vector *members, const Name *name);
 
 Type *create_enum_type(const Name *name);

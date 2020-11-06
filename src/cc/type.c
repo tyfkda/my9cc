@@ -152,6 +152,11 @@ Type *new_func_type(const Type *ret, Vector *params, Vector *param_types, bool v
 
 // Struct
 
+void add_struct_member(Vector *members, const Name *name, const Type *type, int flag,
+                       const Token *ident) {
+  var_add(members, name, type, flag, ident);
+}
+
 StructInfo *create_struct(Vector *members, bool is_union) {
   StructInfo *sinfo = malloc(sizeof(*sinfo));
   sinfo->members = members;
@@ -160,6 +165,10 @@ StructInfo *create_struct(Vector *members, bool is_union) {
   sinfo->align = 0;
   calc_struct_size(sinfo);
   return sinfo;
+}
+
+int find_struct_member(const Vector *members, const Name *name) {
+  return var_find(members, name);
 }
 
 // Enum
