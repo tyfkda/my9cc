@@ -195,14 +195,14 @@ Type *arrayof(const Type *type, size_t length) {
   return arr;
 }
 
-Type *new_func_type(const Type *ret, const Vector *params, const Vector *param_types, bool vaargs) {
+Type *new_func_type(const Type *ret, const Vector *param_types, const Vector *param_idents, bool vaargs) {
   Type *f = malloc(sizeof(*f));
   f->kind = TY_FUNC;
   f->qualifier = 0;
   f->func.ret = ret;
   f->func.vaargs = vaargs;
-  f->func.params = params;
   f->func.param_types = param_types;
+  f->func.param_idents = param_idents;
   return f;
 }
 

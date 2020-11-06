@@ -19,8 +19,9 @@ enum {
   VS_EXTERN = 1 << 1,
   VS_ENUM_MEMBER = 1 << 2,
   VS_TYPEDEF = 1 << 3,
+  VS_FUNPARAM = 1 << 4,
 
-  VS_REF_TAKEN = 1 << 4,  // `&x` used.
+  VS_REF_TAKEN = 1 << 5,  // `&x` used.
 };
 
 typedef struct VarInfo {

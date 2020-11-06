@@ -875,23 +875,13 @@ const Type *parse_type_suffix(const Type *type) {
   return arrayof(parse_type_suffix(type), length);
 }
 
-Vector *extract_varinfo_types(const Vector *params) {
-  Vector *param_types = NULL;
-  if (params != NULL) {
-    param_types = new_vector();
-    for (int i = 0, len = params->len; i < len; ++i)
-      vec_push(param_types, ((VarInfo*)params->data[i])->type);
-  }
-  return param_types;
-}
-
 static const Type *parse_var_def_cont(const Type *type) {
   if (match(TK_LPAR)) {
     const Type *rettype = type;
     bool vaargs;
-    Vector *params = parse_funparams(&vaargs);
-    Vector *param_types = extract_varinfo_types(params);
-    type = new_func_type(rettype, params, param_types, vaargs);
+    Vector *param_idents;
+    Vector *param_types = parse_funparams(&param_idents, &vaargs);
+    type = new_func_type(rettype, param_types, param_idents, vaargs);
   }
   if (type->kind != TY_VOID)
     type = parse_type_suffix(type);
@@ -938,13 +928,15 @@ const Type *parse_full_type(int *pstorage, Token **pident) {
   return type;
 }
 
-Vector *parse_funparams(bool *pvaargs) {
-  Vector *params = NULL;
+Vector *parse_funparams(Vector **pidents, bool *pvaargs) {
+  Vector *param_types = NULL;
+  Vector *param_idents = NULL;
   bool vaargs = false;
   if (match(TK_RPAR)) {
     // Arbitrary funparams.
   } else {
-    params = new_vector();
+    param_types = new_vector();
+    param_idents = new_vector();
     for (;;) {
       if (match(TK_ELLIPSIS)) {
         vaargs = true;
@@ -964,7 +956,7 @@ Vector *parse_funparams(bool *pvaargs) {
       if (storage & VS_TYPEDEF)
         parse_error(ident, "`typedef' for function parameter");
 
-      if (params->len == 0) {
+      if (param_types->len == 0) {
         if (type->kind == TY_VOID) {  // fun(void)
           if (ident != NULL || !match(TK_RPAR))
             parse_error(NULL, "`)' expected");
@@ -978,14 +970,16 @@ Vector *parse_funparams(bool *pvaargs) {
       if (type->kind == TY_ARRAY)
         type = array_to_ptr(type);
 
-      var_add(params, ident != NULL ? ident->ident : NULL, type, storage, ident);
+      vec_push(param_types, type);
+      vec_push(param_idents, ident);
       if (match(TK_RPAR))
         break;
       consume(TK_COMMA, "Comma or `)' expected");
     }
   }
   *pvaargs = vaargs;
-  return params;
+  *pidents = param_idents;
+  return param_types;
 }
 
 // Parse struct or union definition `{...}`

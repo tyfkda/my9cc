@@ -299,12 +299,13 @@ static void put_args_to_stack(Function *func) {
   }
 
   // Store arguments into local frame.
-  const Vector *params = func->type->func.params;
-  if (params == NULL)
+  const Vector *param_idents = func->type->func.param_idents;
+  if (param_idents == NULL)
     return;
 
-  int len = params->len;
+  int len = param_idents->len;
   int n = len;
+  Scope *scope = func->scopes->data[0];
   if (func->type->func.vaargs && n < MAX_REG_ARGS)
     n = MAX_REG_ARGS;
 #ifndef __NO_FLONUM
@@ -314,7 +315,24 @@ static void put_args_to_stack(Function *func) {
     const Type *type;
     int offset;
     if (i < len) {
-      const VarInfo *varinfo = params->data[i];
+      const Token *ident = param_idents->data[i];
+      if (ident == NULL) {
+        type = func->type->func.param_types->data[i];
+        if (!is_stack_param(type))
+          ++arg_index;
+        continue;
+      }
+
+      // Find from top scope.
+      VarInfo *varinfo = NULL;
+      for (int j = 0; j < scope->vars->len; ++j) {
+        VarInfo *vi = scope->vars->data[i];
+        if (equal_name(vi->name, ident->ident)) {
+          varinfo = vi;
+          break;
+        }
+      }
+      assert(varinfo != NULL);
       type = varinfo->type;
       offset = varinfo->local.reg->offset;
     } else {  // vaargs

@@ -103,9 +103,22 @@ static void alloc_variable_registers(Function *func) {
   }
 
   // Add flag to parameters.
-  if (func->type->func.params != NULL) {
-    for (int j = 0; j < func->type->func.params->len; ++j) {
-      VarInfo *varinfo = func->type->func.params->data[j];
+  const Vector *param_idents = func->type->func.param_idents;
+  if (param_idents != NULL) {
+    Scope *scope = func->scopes->data[0];
+    for (int j = 0; j < scope->vars->len; ++j) {
+      VarInfo *varinfo = scope->vars->data[j];
+      if (!(varinfo->storage & VS_FUNPARAM) ||
+          equal_name(varinfo->name, retval_name))
+        continue;
+      int k;
+      for (k = 0; k < param_idents->len; ++k) {
+        const Token *ident = param_idents->data[k];
+        if (ident != NULL && equal_name(ident->ident, varinfo->name))
+          break;
+      }
+      assert(k < param_idents->len);
+
       VReg *vreg = varinfo->local.reg;
       vreg->flag |= VRF_PARAM;
       vreg->param_index = j + param_index_offset;

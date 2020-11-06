@@ -8,6 +8,7 @@
 #include "ast.h"
 #include "codegen.h"  // WORD_SIZE
 #include "ir.h"
+#include "lexer.h"  // Token
 #include "type.h"
 #include "util.h"
 #include "var.h"
@@ -457,7 +458,7 @@ static void detect_living_registers(
 
 void prepare_register_allocation(Function *func) {
   // Handle function parameters first.
-  if (func->type->func.params != NULL) {
+  if (func->type->func.param_idents != NULL) {
     const int DEFAULT_OFFSET = WORD_SIZE * 2;  // Return address, saved base pointer.
     Scope *scope = (Scope*)func->scopes->data[0];
     assert(scope != NULL);
@@ -467,8 +468,10 @@ void prepare_register_allocation(Function *func) {
 #endif
     int reg_param_index = ireg_index;
     int offset = DEFAULT_OFFSET;
-    for (int j = 0; j < func->type->func.params->len; ++j) {
-      VarInfo *varinfo = func->type->func.params->data[j];
+    for (int j = 0; j < func->type->func.param_idents->len; ++j) {
+      const Token *token = func->type->func.param_idents->data[j];
+      VarInfo *varinfo = scope_find(scope, token->ident, NULL);
+      assert(varinfo != NULL);
       VReg *vreg = varinfo->local.reg;
       // Currently, all parameters are force spilled.
       spill_vreg(func->ra, vreg);

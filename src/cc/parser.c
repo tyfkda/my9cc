@@ -750,9 +750,9 @@ static Vector *parse_vardecl_cont(const Type *rawType, Type *type, int storage, 
     Initializer *init = NULL;
     if (match(TK_LPAR)) {  // Function prototype.
       bool vaargs;
-      Vector *params = parse_funparams(&vaargs);
-      Vector *param_types = extract_varinfo_types(params);
-      type = new_func_type(type, params, param_types, vaargs);
+      Vector *param_idents;
+      Vector *param_types = parse_funparams(&param_idents, &vaargs);
+      type = new_func_type(type, param_types, param_idents, vaargs);
     } else {
       not_void(type, NULL);
     }
@@ -1129,11 +1129,18 @@ static Declaration *parse_defun(const Type *functype, int storage, Token *ident)
     assert(is_global_scope(curscope));
     curfunc = func;
     Vector *top_vars = NULL;
-    const Vector *params = func->type->func.params;
-    if (params != NULL) {
+    const Vector *param_types = func->type->func.param_types;
+    if (param_types != NULL) {
+      const Vector *param_idents = func->type->func.param_idents;
+      assert(param_types->len == param_idents->len);
       top_vars = new_vector();
-      for (int i = 0; i < params->len; ++i)
-        vec_push(top_vars, params->data[i]);
+      for (int i = 0; i < param_types->len; ++i) {
+        Token *ident = param_idents->data[i];
+        if (ident != NULL) {
+          int storage = VS_FUNPARAM;  // TODO: CONST
+          var_add(top_vars, ident != NULL ? ident->ident : NULL, param_types->data[i], storage, ident);
+        }
+      }
     }
     func->scopes = new_vector();
     enter_scope(func, top_vars);  // Scope for parameters.
