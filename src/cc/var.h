@@ -37,10 +37,6 @@ typedef struct VarInfo {
       struct VarInfo *gvar;  // which points to global(static) variable.
     } static_;
     struct {
-      // For codegen.
-      int offset;
-    } struct_member;
-    struct {
       int value;
     } enum_member;
   };

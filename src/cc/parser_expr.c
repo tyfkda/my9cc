@@ -235,14 +235,14 @@ Expr *make_cast(const Type *type, const Token *token, Expr *sub, bool is_explici
   return new_expr_cast(type, token, sub);
 }
 
-const VarInfo *search_from_anonymous(const Type *type, const Name *name, const Token *ident,
-                                     Vector *stack) {
+const MemberInfo *search_from_anonymous(const Type *type, const Name *name, const Token *ident,
+                                        Vector *stack) {
   assert(type->kind == TY_STRUCT);
   ensure_struct((Type*)type, ident);
 
   const Vector *members = type->struct_.info->members;
   for (int i = 0, len = members->len; i < len; ++i) {
-    const VarInfo *member = members->data[i];
+    const MemberInfo *member = members->data[i];
     if (member->name != NULL) {
       if (equal_name(member->name, name)) {
         vec_push(stack, (void*)(long)i);
@@ -250,7 +250,7 @@ const VarInfo *search_from_anonymous(const Type *type, const Name *name, const T
       }
     } else if (member->type->kind == TY_STRUCT) {
       vec_push(stack, (void*)(intptr_t)i);
-      const VarInfo *submember = search_from_anonymous(member->type, name, ident, stack);
+      const MemberInfo *submember = search_from_anonymous(member->type, name, ident, stack);
       if (submember != NULL)
         return submember;
       vec_pop(stack);
@@ -539,18 +539,18 @@ static Expr *parse_member_access(Expr *target, Token *acctok) {
   ensure_struct((Type*)targetType, ident);
   int index = find_struct_member(targetType->struct_.info->members, name);
   if (index >= 0) {
-    const VarInfo *member = targetType->struct_.info->members->data[index];
+    const MemberInfo *member = targetType->struct_.info->members->data[index];
     return new_expr_member(acctok, member->type, target, ident, index);
   } else {
     Vector *stack = new_vector();
-    const VarInfo *member = search_from_anonymous(targetType, ident->ident, ident, stack);
+    const MemberInfo *member = search_from_anonymous(targetType, ident->ident, ident, stack);
     if (member == NULL)
       parse_error(ident, "`%.*s' doesn't exist in the struct", name->bytes, name->chars);
     Expr *p = target;
     const Type *type = targetType;
     for (int i = 0; i < stack->len; ++i) {
       int index = (int)(long)stack->data[i];
-      const VarInfo *member = type->struct_.info->members->data[index];
+      const MemberInfo *member = type->struct_.info->members->data[index];
       type = member->type;
       p = new_expr_member(acctok, type, p, acctok, index);
     }
@@ -915,7 +915,8 @@ static StructInfo *parse_struct(bool is_union) {
           parse_error(NULL, "`ident' expected");
       }
       const Name *name = ident != NULL ? ident->ident : NULL;
-      add_struct_member(members, name, type, flag, ident);
+      if (!add_struct_member(members, name, type))
+        parse_error(ident, "`%.*s' already defined", name->bytes, name->chars);
 
       if (match(TK_COMMA))
         continue;

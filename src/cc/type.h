@@ -33,8 +33,16 @@ enum TypeKind {
   TY_STRUCT,  // include union
 };
 
+typedef struct MemberInfo {
+  const Name *name;
+  const struct Type *type;
+
+  // For codegen.
+  int offset;
+} MemberInfo;
+
 typedef struct StructInfo {
-  Vector *members;  // <VarInfo*>
+  Vector *members;  // <MemberInfo*>
   ssize_t size;
   int align;
   bool is_union;
@@ -98,8 +106,7 @@ Type *new_func_type(const Type *ret, Vector *params, Vector *param_types, bool v
 
 // Struct
 
-void add_struct_member(Vector *members, const Name *name, const Type *type, int flag,
-                       const Token *ident);
+bool add_struct_member(Vector *members, const Name *name, const Type *type);
 StructInfo *create_struct(Vector *members, bool is_union);
 int find_struct_member(const Vector *members, const Name *name);
 
