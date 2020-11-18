@@ -17,6 +17,10 @@
 #include "var.h"
 #include "x86_64.h"
 
+#ifndef __NO_FLONUM
+#include "math.h"
+#endif
+
 static void construct_initial_value(const Type *type, const Initializer *init) {
   assert(init == NULL || init->kind != IK_DOT);
 
@@ -60,11 +64,10 @@ static void construct_initial_value(const Type *type, const Initializer *init) {
             error("Illegal initializer: constant number expected");
           v.f = value->flonum;
         }
-#if 0
-        _DOUBLE(FLONUM(v.d));
-#else
-        _QUAD(HEXNUM(v.h));
-#endif
+        if (isfinite(v.f))
+          _DOUBLE(FLONUM(v.f));
+        else
+          _QUAD(HEXNUM(v.h));
       }
       break;
     case FL_FLOAT:
@@ -78,11 +81,10 @@ static void construct_initial_value(const Type *type, const Initializer *init) {
             error("Illegal initializer: constant number expected");
           v.f = value->flonum;
         }
-#if 0
-        _FLOAT(FLONUM(v.f));
-#else
-        _LONG(HEXNUM(v.h));
-#endif
+        if (isfinite(v.f))
+          _FLOAT(FLONUM(v.f));
+        else
+          _LONG(HEXNUM(v.h));
       }
       break;
     }
