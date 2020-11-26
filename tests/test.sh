@@ -99,6 +99,10 @@ compile_error() {
   fi
 }
 
+try_direct 'struct init w/o brace' 33 'struct S {int x;} g[]={11,22,33}; int main(){return g[2].x;}'
+try_direct 'struct init w/o brace' 66 'struct S {int x[3];} g[]={44,55,66}; int main(){return g.x[2];}'
+exit 0
+
 try_output 'write' 'hello' "write(1, \"hello\\\\n\", 6);"
 try_output 'char array' 123 "char s[16]; s[0] = '1'; s[1] = '2'; s[2] = '3'; s[3] = '\\\\n'; write(1, s, 4);"
 try_output 'string initializer' 'aBc' "char s[] = \"abc\\\\n\"; s[1] = 'B'; write(1, s, 4);"
