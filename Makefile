@@ -78,6 +78,7 @@ test-all: test test-gen2 diff-gen23
 clean:
 	rm -rf cc1 cpp as xcc $(OBJ_DIR) a.out gen2 gen3 tmp.s
 	$(MAKE) -C tests clean
+	rm -rf chibitest/*.exe
 
 ### Self hosting
 
@@ -124,3 +125,16 @@ $(TARGET)/xcc:	$(HOST)/xcc $(AS_SRCS)
 	mkdir -p $(TARGET)
 	$(HOST)/xcc -o$@ -Iinc -I$(UTIL_DIR) -DSELF_HOSTING $(XCC_SRCS) \
 	      $(LIB_SRCS)
+
+### chibicc
+
+CHIBITEST_SRCS=$(wildcard chibitest/*.c)
+CHIBITESTS=$(CHIBITEST_SRCS:.c=.exe)
+
+chibitest/%.exe: xcc chibitest/%.c
+	./xcc -Iinc -Ichibitest -o$@ chibitest/$*.c chibitest/runtime/common.c $(LIB_SRCS)
+
+.PHONY: chibitest
+chibitest: all $(CHIBITESTS)
+	for i in $(CHIBITESTS); do echo $$i; ./$$i || exit 1; echo; done
+	#chibitest/driver.sh ./xcc

@@ -1,3 +1,4 @@
+#if 0
 #include "test.h"
 
 char g3 = 3;
@@ -265,3 +266,7 @@ int main() {
   printf("OK\n");
   return 0;
 }
+
+#else
+int main() { return 0; }
+#endif

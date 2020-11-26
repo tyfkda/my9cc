@@ -1,16 +1,16 @@
 #include "test.h"
 
 typedef int MyInt, MyInt2[4];
-typedef int;
+//typedef int;
 
 int main() {
-  ASSERT(1, ({ typedef int t; t x=1; x; }));
-  ASSERT(1, ({ typedef struct {int a;} t; t x; x.a=1; x.a; }));
-  ASSERT(1, ({ typedef int t; t t=1; t; }));
-  ASSERT(2, ({ typedef struct {int a;} t; { typedef int t; } t x; x.a=2; x.a; }));
-  ASSERT(4, ({ typedef t; t x; sizeof(x); }));
-  ASSERT(3, ({ MyInt x=3; x; }));
-  ASSERT(16, ({ MyInt2 x; sizeof(x); }));
+  { typedef int t; t x=1; ASSERT(1, (x)); }
+  { typedef struct {int a;} t; t x; ASSERT(1, (x.a=1, x.a)); }
+//  { typedef int t; t t=1; ASSERT(1, (t)); }
+  { typedef struct {int a;} t; { typedef int t; } t x; ASSERT(2, (x.a=2, x.a)); }
+  { typedef t; t x; ASSERT(4, (sizeof(x))); }
+  { MyInt x=3; ASSERT(3, (x)); }
+  { MyInt2 x; ASSERT(16, (sizeof(x))); }
 
   printf("OK\n");
   return 0;

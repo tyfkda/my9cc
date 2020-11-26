@@ -1,17 +1,17 @@
 #include "test.h"
 
 int main() {
-  ASSERT(0, ({ enum { zero, one, two }; zero; }));
-  ASSERT(1, ({ enum { zero, one, two }; one; }));
-  ASSERT(2, ({ enum { zero, one, two }; two; }));
-  ASSERT(5, ({ enum { five=5, six, seven }; five; }));
-  ASSERT(6, ({ enum { five=5, six, seven }; six; }));
-  ASSERT(0, ({ enum { zero, five=5, three=3, four }; zero; }));
-  ASSERT(5, ({ enum { zero, five=5, three=3, four }; five; }));
-  ASSERT(3, ({ enum { zero, five=5, three=3, four }; three; }));
-  ASSERT(4, ({ enum { zero, five=5, three=3, four }; four; }));
-  ASSERT(4, ({ enum { zero, one, two } x; sizeof(x); }));
-  ASSERT(4, ({ enum t { zero, one, two }; enum t y; sizeof(y); }));
+  { enum { zero, one, two }; ASSERT(0, (zero)); }
+  { enum { zero, one, two }; ASSERT(1, (one)); }
+  { enum { zero, one, two }; ASSERT(2, (two)); }
+  { enum { five=5, six, seven }; ASSERT(5, (five)); }
+  { enum { five=5, six, seven }; ASSERT(6, (six)); }
+  { enum { zero, five=5, three=3, four }; ASSERT(0, (zero)); }
+  { enum { zero, five=5, three=3, four }; ASSERT(5, (five)); }
+  { enum { zero, five=5, three=3, four }; ASSERT(3, (three)); }
+  { enum { zero, five=5, three=3, four }; ASSERT(4, (four)); }
+  { enum { zero, one, two } x; ASSERT(4, (sizeof(x))); }
+  { enum t { zero, one, two }; enum t y; ASSERT(4, (sizeof(y))); }
 
   printf("OK\n");
   return 0;

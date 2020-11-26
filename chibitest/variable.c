@@ -4,64 +4,64 @@ int g1, g2[4];
 static int g3 = 3;
 
 int main() {
-  ASSERT(3, ({ int a; a=3; a; }));
-  ASSERT(3, ({ int a=3; a; }));
-  ASSERT(8, ({ int a=3; int z=5; a+z; }));
+  { int a; ASSERT(3, (a=3, a)); }
+  { int a=3; ASSERT(3, (a)); }
+  { int a=3; int z=5; ASSERT(8, (a+z)); }
 
-  ASSERT(3, ({ int a=3; a; }));
-  ASSERT(8, ({ int a=3; int z=5; a+z; }));
-  ASSERT(6, ({ int a; int b; a=b=3; a+b; }));
-  ASSERT(3, ({ int foo=3; foo; }));
-  ASSERT(8, ({ int foo123=3; int bar=5; foo123+bar; }));
+  { int a=3; ASSERT(3, (a)); }
+  { int a=3; int z=5; ASSERT(8, (a+z)); }
+  { int a; int b; ASSERT(6, (a=b=3, a+b)); }
+  { int foo=3; ASSERT(3, (foo)); }
+  { int foo123=3; int bar=5; ASSERT(8, (foo123+bar)); }
 
-  ASSERT(4, ({ int x; sizeof(x); }));
-  ASSERT(4, ({ int x; sizeof x; }));
-  ASSERT(8, ({ int *x; sizeof(x); }));
-  ASSERT(16, ({ int x[4]; sizeof(x); }));
-  ASSERT(48, ({ int x[3][4]; sizeof(x); }));
-  ASSERT(16, ({ int x[3][4]; sizeof(*x); }));
-  ASSERT(4, ({ int x[3][4]; sizeof(**x); }));
-  ASSERT(5, ({ int x[3][4]; sizeof(**x) + 1; }));
-  ASSERT(5, ({ int x[3][4]; sizeof **x + 1; }));
-  ASSERT(4, ({ int x[3][4]; sizeof(**x + 1); }));
-  ASSERT(4, ({ int x=1; sizeof(x=2); }));
-  ASSERT(1, ({ int x=1; sizeof(x=2); x; }));
+  { int x; ASSERT(4, (sizeof(x))); }
+  { int x; ASSERT(4, (sizeof x)); }
+  { int *x; ASSERT(8, (sizeof(x))); }
+  { int x[4]; ASSERT(16, (sizeof(x))); }
+  { int x[3][4]; ASSERT(48, (sizeof(x))); }
+  { int x[3][4]; ASSERT(16, (sizeof(*x))); }
+  { int x[3][4]; ASSERT(4, (sizeof(**x))); }
+  { int x[3][4]; ASSERT(5, (sizeof(**x) + 1)); }
+  { int x[3][4]; ASSERT(5, (sizeof **x + 1)); }
+  { int x[3][4]; ASSERT(4, (sizeof(**x + 1))); }
+  { int x=1; ASSERT(4, (sizeof(x=2))); }
+  { int x=1; ASSERT(1, (sizeof(x=2), x)); }
 
   ASSERT(0, g1);
-  ASSERT(3, ({ g1=3; g1; }));
-  ASSERT(0, ({ g2[0]=0; g2[1]=1; g2[2]=2; g2[3]=3; g2[0]; }));
-  ASSERT(1, ({ g2[0]=0; g2[1]=1; g2[2]=2; g2[3]=3; g2[1]; }));
-  ASSERT(2, ({ g2[0]=0; g2[1]=1; g2[2]=2; g2[3]=3; g2[2]; }));
-  ASSERT(3, ({ g2[0]=0; g2[1]=1; g2[2]=2; g2[3]=3; g2[3]; }));
+  ASSERT(3, (g1=3, g1));
+  ASSERT(0, (g2[0]=0, g2[1]=1, g2[2]=2, g2[3]=3, g2[0]));
+  ASSERT(1, (g2[0]=0, g2[1]=1, g2[2]=2, g2[3]=3, g2[1]));
+  ASSERT(2, (g2[0]=0, g2[1]=1, g2[2]=2, g2[3]=3, g2[2]));
+  ASSERT(3, (g2[0]=0, g2[1]=1, g2[2]=2, g2[3]=3, g2[3]));
 
   ASSERT(4, sizeof(g1));
   ASSERT(16, sizeof(g2));
 
-  ASSERT(1, ({ char x=1; x; }));
-  ASSERT(1, ({ char x=1; char y=2; x; }));
-  ASSERT(2, ({ char x=1; char y=2; y; }));
+  { char x=1; ASSERT(1, (x)); }
+  { char x=1; char y=2; ASSERT(1, (x)); }
+  { char x=1; char y=2; ASSERT(2, (y)); }
 
-  ASSERT(1, ({ char x; sizeof(x); }));
-  ASSERT(10, ({ char x[10]; sizeof(x); }));
+  { char x; ASSERT(1, (sizeof(x))); }
+  { char x[10]; ASSERT(10, (sizeof(x))); }
 
-  ASSERT(2, ({ int x=2; { int x=3; } x; }));
-  ASSERT(2, ({ int x=2; { int x=3; } int y=4; x; }));
-  ASSERT(3, ({ int x=2; { x=3; } x; }));
+  { int x=2; { int x=3; } ASSERT(2, (x)); }
+  { int x=2; { int x=3; } int y=4; ASSERT(2, (x)); }
+  { int x=2; { x=3; } ASSERT(3, (x)); }
 
-  ASSERT(7, ({ int x; int y; char z; char *a=&y; char *b=&z; b-a; }));
-  ASSERT(1, ({ int x; char y; int z; char *a=&y; char *b=&z; b-a; }));
+//  { int x; int y; char z; char *a=(char*)&y; char *b=&z; ASSERT(7, (b-a)); }
+//  { int x; char y; int z; char *a=&y; char *b=(char*)&z; ASSERT(1, (b-a)); }
 
-  ASSERT(8, ({ long x; sizeof(x); }));
-  ASSERT(2, ({ short x; sizeof(x); }));
+  { long x; ASSERT(8, (sizeof(x))); }
+  { short x; ASSERT(2, (sizeof(x))); }
 
-  ASSERT(24, ({ char *x[3]; sizeof(x); }));
-  ASSERT(8, ({ char (*x)[3]; sizeof(x); }));
-  ASSERT(1, ({ char (x); sizeof(x); }));
-  ASSERT(3, ({ char (x)[3]; sizeof(x); }));
-  ASSERT(12, ({ char (x[3])[4]; sizeof(x); }));
-  ASSERT(4, ({ char (x[3])[4]; sizeof(x[0]); }));
-  ASSERT(3, ({ char *x[3]; char y; x[0]=&y; y=3; x[0][0]; }));
-  ASSERT(4, ({ char x[3]; char (*y)[3]=x; y[0][0]=4; y[0][0]; }));
+  { char *x[3]; ASSERT(24, (sizeof(x))); }
+  { char (*x)[3]; ASSERT(8, (sizeof(x))); }
+  { char (x); ASSERT(1, (sizeof(x))); }
+  { char (x)[3]; ASSERT(3, (sizeof(x))); }
+  { char (x[3])[4]; ASSERT(12, (sizeof(x))); }
+  { char (x[3])[4]; ASSERT(4, (sizeof(x[0]))); }
+  { char *x[3]; char y; ASSERT(3, (x[0]=&y, y=3, x[0][0])); }
+  { char x[3]; char (*y)[3]=(char(*)[3])x; ASSERT(4, (y[0][0]=4, y[0][0])); }
 
   { void *x; }
 

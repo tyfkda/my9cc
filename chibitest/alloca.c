@@ -1,3 +1,4 @@
+#if 0
 #include "test.h"
 
 void *fn(int x, void *p, int y) { return p; }
@@ -26,3 +27,7 @@ int main() {
   printf("OK\n");
   return 0;
 }
+
+#else
+int main() { return 0; }
+#endif

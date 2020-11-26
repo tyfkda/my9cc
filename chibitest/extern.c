@@ -3,9 +3,9 @@
 extern int ext1;
 extern int *ext2;
 
-inline int inline_fn(void) {
-  return 3;
-}
+//inline int inline_fn(void) {
+//  return 3;
+//}
 
 int main() {
   ASSERT(5, ext1);
