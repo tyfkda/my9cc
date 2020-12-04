@@ -433,7 +433,7 @@ static void ir_memcpy(int dst_reg, int src_reg, ssize_t size) {
   const char *dst = kReg64s[dst_reg];
   const char *src = kReg64s[src_reg];
 
-  // Break %rcx, %dl
+  // Break %rax, %rcx, %dl
   switch (size) {
   case 1:
     MOV(INDIRECT(src, NULL, 1), DL);
@@ -455,7 +455,8 @@ static void ir_memcpy(int dst_reg, int src_reg, ssize_t size) {
     {
       const Name *name = alloc_label();
       const char *label = fmt_name(name);
-      PUSH(src);
+      //PUSH(src);  // Using stack breaks in some situation (e.g. function returns struct)
+      MOV(src, RAX);
       MOV(IM(size), RCX);
       EMIT_LABEL(label);
       MOV(INDIRECT(src, NULL, 1), DL);
@@ -464,7 +465,8 @@ static void ir_memcpy(int dst_reg, int src_reg, ssize_t size) {
       INC(dst);
       DEC(RCX);
       JNE(label);
-      POP(src);
+      //POP(src);
+      MOV(RAX, src);
     }
     break;
   }
