@@ -34,7 +34,7 @@ static void PrintFunction(const Proto* f, int full);
 static int listing=0;			/* list bytecodes? */
 static int dumping=1;			/* dump bytecodes? */
 static int stripping=0;			/* strip debug information? */
-static char Output[]={ OUTPUT };	/* default output file name */
+static char Output[]=OUTPUT;	/* default output file name */
 static const char* output=Output;	/* actual output file name */
 static const char* progname=PROGNAME;	/* actual program name */
 static TString **tmname;
@@ -675,15 +675,19 @@ static void PrintHeader(const Proto* f)
   s="(bstring)";
  else
   s="(string)";
- printf("\n%s <%s:%d,%d> (%d instruction%s at %p)\n",
+ printf("\n%s <%s:%d,%d>",
 	(f->linedefined==0)?"main":"function",s,
-	f->linedefined,f->lastlinedefined,
+	f->linedefined,f->lastlinedefined);
+ printf(" (%d instruction%s at %p)\n",
 	S(f->sizecode),VOID(f));
- printf("%d%s param%s, %d slot%s, %d upvalue%s, ",
-	(int)(f->numparams),f->is_vararg?"+":"",SS(f->numparams),
+ printf("%d%s param%s",
+	(int)(f->numparams),f->is_vararg?"+":"",SS(f->numparams));
+ printf(", %d slot%s, %d upvalue%s, ",
 	S(f->maxstacksize),S(f->sizeupvalues));
- printf("%d local%s, %d constant%s, %d function%s\n",
-	S(f->sizelocvars),S(f->sizek),S(f->sizep));
+ printf("%d local%s, %d constant%s",
+	S(f->sizelocvars),S(f->sizek));
+ printf(", %d function%s\n",
+	S(f->sizep));
 }
 
 static void PrintDebug(const Proto* f)

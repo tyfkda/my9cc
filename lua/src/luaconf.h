@@ -77,7 +77,7 @@
 #endif
 
 
-#if defined(LUA_USE_LINUX)
+#if defined(LUA_USE_LINUX) && 0
 #define LUA_USE_POSIX
 #define LUA_USE_DLOPEN		/* needs an extra library: -ldl */
 #endif
@@ -351,7 +351,7 @@
 ** (These functions were already officially removed in 5.3;
 ** nevertheless they are still available here.)
 */
-#define LUA_COMPAT_MATHLIB
+//#define LUA_COMPAT_MATHLIB
 
 /*
 @@ LUA_COMPAT_APIINTCASTS controls the presence of macros for
