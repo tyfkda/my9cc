@@ -330,6 +330,12 @@ size_t fread(void *buffer, size_t size, size_t count, FILE *fp) {
   return read(fp->fd, buffer, size * count);
 }
 
+int puts(const char *s) {
+  size_t len = strlen(s);
+  fwrite(s, len, 1, stdout);
+  fputc('\n', stdout);
+}
+
 int vfprintf(FILE *fp, const char *fmt, va_list ap) {
   // TODO: directly output to fd, not use vsnprintf.
   char buf[1024];

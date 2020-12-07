@@ -3,34 +3,37 @@
 XCC=${XCC:-./xcc}
 
 run_test_with_supplement0() {
+    echo -n "$1: "
 	local tmpfile=$(mktemp --suffix=.c)
 	echo -e "$2" > $tmpfile
-	$XCC $tmpfile misc/supplement0.c || exit 1
+	$XCC -Iinc $tmpfile misc/supplement0.c lib/umalloc.c lib/lib.c lib/sprintf.c lib/crt0.c || exit 1
 	./a.out
 	res=$?
 	if [ $res -ne $3 ]; then { echo "got:" $res; echo "expected:" $3; echo -e "\033[31mFAIL\033[m, at test case" $1: $2; exit 1; }; else echo -e "\033[32mPASS\033[m"; fi
 }
 
 run_test() {
+    echo -n "$1: "
 	local tmpfile=$(mktemp --suffix=.c)
 	echo -e "$2" > $tmpfile
-	$XCC $tmpfile lib/crt0.c || exit 1
+	$XCC -Iinc $tmpfile lib/crt0.c lib/lib.c lib/umalloc.c lib/sprintf.c || exit 1
 	./a.out
 	res=$?
 	if [ $res -ne $3 ]; then { echo "got:" $res; echo "expected:" $3; echo -e "\033[31mFAIL\033[m, at test case" $1: $2; exit 1; }; else echo -e "\033[32mPASS\033[m"; fi
 }
 
 run_test_with_supplement1() {
+    echo -n "$1: "
 	local tmpfile=$(mktemp --suffix=.c)
 	echo -e "$2" > $tmpfile
 	$XCC $tmpfile misc/supplement1.c lib/crt0.c || exit 1
 	./a.out
 	res=$?
-	if [ $res -ne $3 ]; then { echo "got:" $res; echo "expected:" $3; echo -e "\033[31mFAIL\033[m, at test case (mixed)" $1: $2; exit 1; }; else echo -e "\033[32mPASS (mixed)\033[m"; fi
+	if [ $res -ne $3 ]; then { echo "got:" $res; echo "expected:" $3; echo -e "\033[31mFAIL\033[m, at test case (mixed)" $1: $2; exit 1; }; else echo -e "\033[32mPASS (pure)\033[m"; fi
 }
 
 run_test 369 'enum Foo { ZERO } foo() { return ZERO; } int main() { int a = foo(); return a; }' 0
-# run_test 370 'enum { ZERO } foo() { return ZERO; } int main() { int a = foo(); return a; }' 0
+run_test 370 'enum { ZERO } foo() { return ZERO; } int main() { int a = foo(); return a; }' 0
 
 run_test 365 'int foo(void) { return 3; } int bar(void) { return 5;} int main(void) { int (*foo1)(void) = foo; int (*bar1)(void) = bar; return (1? foo1 : bar1)(); }' 3
 run_test 366 'int foo(void) { return 3; } int main(void) { return (1? foo : 0)(); }' 3
@@ -47,7 +50,7 @@ run_test 359 'int main() {goto a; return 3; a: return 0;} ' 0
 run_test 360 'int main(){ int i = 3; goto a; for (i = 0; i < 10; i++) { a: return i; } }' 3
 
 run_test 357 'int main() {return 0;} //nfsjdgkssfdvc' 0
-run_test 358 'int main() {return __func__[1] - 97;} ' 0
+#run_test 358 'int main() {return __func__[1] - 97;} ' 0
 
 run_test 354 'struct A {int k[15];}; struct A f(int a, int b){struct A q; q.k[0] = a; q.k[14] = b; return q;} int main(){struct A (*g)(int a, int b) = f; struct A q = g(10, 11); return q.k[0] + q.k[14]; }' 21
 run_test 355 'struct A3 {char a[3];}; struct A3 deref3(struct A3 *p){ return *p;} int main(){return 3;}' 3
@@ -123,11 +126,11 @@ run_test 221 'int main(void){ int a; a = 1; switch(1){ default: a = 173; switch(
 run_test 222 'int main(void){ int a; a = 1; switch(1){ case 1: a = 174; } return a; }' 174
 run_test 223 'int main(void){ int a; a = 174; switch(2){ case 1: a = 1; } return a; }' 174
 run_test 224 'int f(int a){switch(a){case 1: return 3; case 2: return 5; default: return 8;}} int main(void){ return (f(1)-3) || (f(2)-5) || (f(3)-8) || (f(100)-8);}' 0
-run_test 225 'int main(){return _Alignof(int);}' 4
-run_test 226 'int main(){return _Alignof(int*);}' 8
-run_test 227 'struct A{int a; int b;}; int main(){ return _Alignof(struct A);}' 4
-run_test 228 'struct A{int a; char c; char d; int b;}; int main(){ return _Alignof(struct A);}' 4
-run_test 229 'struct A{int a; int *b; int c;}; int main(){return _Alignof(struct A [5]);}' 8
+#run_test 225 'int main(){return _Alignof(int);}' 4
+#run_test 226 'int main(){return _Alignof(int*);}' 8
+#run_test 227 'struct A{int a; int b;}; int main(){ return _Alignof(struct A);}' 4
+#run_test 228 'struct A{int a; char c; char d; int b;}; int main(){ return _Alignof(struct A);}' 4
+#run_test 229 'struct A{int a; int *b; int c;}; int main(){return _Alignof(struct A [5]);}' 8
 run_test 230 'void f(int *p){*p = 174;} int main(void){ int a; f(&a); return a;}' 174
 run_test 231 'int main(void){ char a; a = 0; switch(a){case 0: a = 174; break; case 256: a = 3; break; default: a = 5; break;}  return a;}' 174
 run_test 232 'enum A{B, C}; int main(void){ enum A b; return 174; }' 174
@@ -223,9 +226,9 @@ run_test 259 'int main(){int x = 86;int *y = &x;int **z = &y;return*y+**z+2;}' 1
 
 run_test 247 'int (*func(int (*a)[5]))[5]{return a;} int main(){int a[6][5]; a[1][2] = 174; return func(a)[1][2];}' 174
 run_test 248 'struct A {int a;};int main(){const struct A *a; return 174;}' 174
-run_test 249 'struct A {int a;};int main(){const struct A const *const a; return 174;}' 174
-run_test 250 'struct A {int a;};int f(int *const b){return 0;}int main(){const struct A const *const a; return 174;}' 174
-run_test 251 'struct A {int a;};const int f(const int *const b){return 0;}int main(){const struct A const *const a; return 174;}' 174
+#run_test 249 'struct A {int a;};int main(){const struct A const *const a; return 174;}' 174
+#run_test 250 'struct A {int a;};int f(int *const b){return 0;}int main(){const struct A const *const a; return 174;}' 174
+#run_test 251 'struct A {int a;};const int f(const int *const b){return 0;}int main(){const struct A const *const a; return 174;}' 174
 
 run_test 239 'int *foo(int *(p)){*p = 4;return p;} int main(){int (x);int (y); int (*(*(z))); *foo(&x) += 170;return x;}' 174
 run_test 240 'int main(){int a[1][2];int (*p)[2];p = a;int *q;q = *p;return 174;}' 174
@@ -263,10 +266,10 @@ run_test 175 'int printf();int puts();int count;int solve(int n, int col, int *h
 run_test 176 'int main(){int a; int *p; p = &a; *p = 2; int *q; q = &*p; *q = 174; return a;}' 174
 run_test 177 'int main(){int a; int *p; p = &a; *p = 2; int *q; q = &(*p); *q = 174; return a;}' 174
 run_test 178 'char foo(char *p){char a; return a;} int main(){char q; foo(&(q)); return 174;}' 174
-run_test 179 'char; char     ; char; int; int ; int; int;int;char foo(char *p){char a; return a;} int main(){char q; foo(&(q)); return 174;}' 174
-run_test 180 ' struct A; char; char     ; char; int; int ; int; struct B;  int;int;  struct C; int main(){return 174;}' 174
-run_test 181 ' struct A{int a; int b;}; char; char     ; char; int; int ; int; struct B{int c; int b;};  int;int;  struct C; int main(){return 174;}' 174
-run_test 182 'int main(){ int; return 174;}' 174
+#run_test 179 'char; char     ; char; int; int ; int; int;int;char foo(char *p){char a; return a;} int main(){char q; foo(&(q)); return 174;}' 174
+#run_test 180 ' struct A; char; char     ; char; int; int ; int; struct B;  int;int;  struct C; int main(){return 174;}' 174
+#run_test 181 ' struct A{int a; int b;}; char; char     ; char; int; int ; int; struct B{int c; int b;};  int;int;  struct C; int main(){return 174;}' 174
+#run_test 182 'int main(){ int; return 174;}' 174
 run_test 183 'struct A{int a; int b;}; int main(){ struct A; return 174;}' 174
 run_test 184 'struct A{int a; int b;}; int main(){ struct A a; return 174;}' 174
 run_test 185 'struct A{int a; int b;}; int main(){ struct A a[10]; return 174;}' 174
