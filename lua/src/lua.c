@@ -574,6 +574,7 @@ static void doREPL (lua_State *L) {
 ** Reads the options and handles them all.
 */
 static int pmain (lua_State *L) {
+fprintf(stderr, "pmain: %p\n", L);
   int argc = (int)lua_tointeger(L, 1);
   char **argv = (char **)lua_touserdata(L, 2);
   int script;
@@ -590,8 +591,11 @@ static int pmain (lua_State *L) {
     lua_pushboolean(L, 1);  /* signal for libraries to ignore env. vars. */
     lua_setfield(L, LUA_REGISTRYINDEX, "LUA_NOENV");
   }
+fprintf(stderr, "pmain 1\n");
   luaL_openlibs(L);  /* open standard libraries */
+fprintf(stderr, "pmain 2\n");
   createargtable(L, argv, argc, script);  /* create table 'arg' */
+fprintf(stderr, "pmain 3\n");
   lua_gc(L, LUA_GCGEN, 0, 0);  /* GC in generational mode */
   if (!(args & has_E)) {  /* no option '-E'? */
     if (handle_luainit(L) != LUA_OK)  /* run LUA_INIT */

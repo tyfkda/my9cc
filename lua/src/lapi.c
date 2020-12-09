@@ -30,6 +30,7 @@
 #include "lundump.h"
 #include "lvm.h"
 
+#include <stdio.h>
 
 
 const char lua_ident[] =
@@ -1105,6 +1106,7 @@ LUA_API int lua_gc (lua_State *L, int what, ...) {
   lua_lock(L);
   g = G(L);
   va_start(argp, what);
+fprintf(stderr, "lua_gc: what=%d\n", what);
   switch (what) {
     case LUA_GCSTOP: {
       g->gcrunning = 0;
