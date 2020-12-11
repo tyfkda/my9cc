@@ -19,16 +19,15 @@ enum fred
 /* Strict ISO C doesn't allow this kind of forward declaration of
    enums, but GCC accepts it (and gives only pedantic warning), and
    it occurs in the wild.  */
-enum efoo;
+enum efoo {
+  ONE,
+  TWO,
+};
 struct Sforward_use {
     int (*fmember) (enum efoo x);
 };
 
 extern enum efoo it_real_fn(void);
-enum efoo {
-  ONE,
-  TWO,
-};
 struct S2 {
   enum efoo (*f2) (void);
 };
@@ -56,7 +55,9 @@ int main()
    enum fred frod;
    enum Epositive epos = epos_two;
 
-   printf("%d %d %d %d %d %d %d %d\n", a, b, c, d, e, f, g, h);
+//   printf("%d %d %d %d %d %d %d %d\n", a, b, c, d, e, f, g, h);
+   printf("%d %d %d %d %d", a, b, c, d, e);
+   printf(" %d %d %d\n", f, g, h);
    /* printf("%d\n", frod); */
    frod = 12;
    printf("%d\n", frod);
@@ -64,7 +65,7 @@ int main()
    printf("%d\n", frod);
 
    /* Following should compile without warning.  */
-   printf ("enum to int: %u\n", deref_uintptr(&epos));
+//   printf ("enum to int: %u\n", deref_uintptr(&epos));
 
    return 0;
 }

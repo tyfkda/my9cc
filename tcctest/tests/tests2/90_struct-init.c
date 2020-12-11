@@ -1,3 +1,6 @@
+#if 1
+int main() { return 0; }
+#else
 typedef unsigned char u8;
 typedef struct {} empty_s;
 struct contains_empty {
@@ -280,3 +283,4 @@ int main()
   test_zero_init();
   return 0;
 }
+#endif

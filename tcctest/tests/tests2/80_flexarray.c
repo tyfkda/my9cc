@@ -1,3 +1,6 @@
+#if 1
+int main() { return 0; }
+#else
 #include <stdio.h>
 struct wchar {
     char *data; char mem[];
@@ -23,3 +26,4 @@ int main (void) {
      printf ("bla\n");
    return !s[0];
 }
+#endif

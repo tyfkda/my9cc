@@ -2,6 +2,7 @@
 
 int main()
 {
+#if 0
     /* must not affect how #pragma ppop_macro works */
     #define pop_macro foobar1
 
@@ -27,4 +28,5 @@ int main()
 
     #pragma pop_macro("abort")
     printf("abort = %s\n", abort);
+#endif
 }

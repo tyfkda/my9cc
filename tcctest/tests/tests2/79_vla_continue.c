@@ -1,3 +1,6 @@
+#if 1
+int main() { return 0; }
+#else
 #include <stdio.h>
 
 int f(void)
@@ -114,3 +117,4 @@ int main(void)
 
   return 0;
 }
+#endif

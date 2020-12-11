@@ -5,6 +5,7 @@
 
 int main()
 {
+#if 0
    printf("%f\n", sin(0.12));
    printf("%f\n", cos(0.12));
    printf("%f\n", tan(0.12));
@@ -23,6 +24,7 @@ int main()
    printf("%f\n", round(12.34));
    printf("%f\n", ceil(12.34));
    printf("%f\n", floor(12.34));
+#endif
 
    return 0;
 }

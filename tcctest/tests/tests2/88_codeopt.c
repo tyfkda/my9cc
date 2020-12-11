@@ -1,3 +1,6 @@
+#if 1
+int main() { return 0; }
+#else
 /* Check some way in where code suppression caused various
    miscompilations.  */
 extern int printf (const char *, ...);
@@ -66,3 +69,4 @@ int main()
   bla();
   return 0;
 }
+#endif

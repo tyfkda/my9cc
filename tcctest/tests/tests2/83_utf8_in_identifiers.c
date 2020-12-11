@@ -1,3 +1,6 @@
+#if 1
+int main() { return 0; }
+#else
 #include <stdio.h>
 double привет=0.1;
 int Lefèvre=2;
@@ -7,3 +10,4 @@ int main(){
     return 0;
 }
 // pcc & tcc only
+#endif

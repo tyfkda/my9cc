@@ -1,5 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef __XCC
+#define CODE  __asm(\
+    "  mov $0x1234ABCD, %eax\n" \
+	"  ret\n")
+
+unsigned short us(void) { CODE; }
+short ss(void) { CODE; }
+unsigned char uc(void) { CODE; }
+signed char sc(void) { CODE; }
+#else
 asm (
     ".text;"
     ".globl _us;.globl _ss;.globl _uc;.globl _sc;"
@@ -13,6 +24,7 @@ asm (
 #define ss _ss
 #define uc _uc
 #define sc _sc
+#endif
 #endif
 
 int main()

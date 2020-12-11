@@ -25,9 +25,9 @@ int main()
    intfunc(98);
    intfunc(99.0);
 
-   floatfunc('a');
-   floatfunc(98);
-   floatfunc(99.0);
+//   floatfunc('a');
+//   floatfunc(98);
+//   floatfunc(99.0);
 
    /* printf("%c %d %f\n", 'a', 'b', 'c'); */
    /* printf("%c %d %f\n", 97, 98, 99); */
@@ -46,7 +46,7 @@ int main()
    float f = 'a';
    float g = 97;
 
-   printf("%f %f\n", f, g);
+//   printf("%f %f\n", f, g);
 
    return 0;
 }

@@ -122,6 +122,11 @@ char *strncpy(char *s, const char *t, size_t n) {
   return os;
 }
 
+char *strcat(char *s1, const char *s2) {
+  strcpy(s1 + strlen(s1), s2);
+  return s1;
+}
+
 void *memcpy(void *dst, const void *src, size_t n) {
   const char *s = src;
   char *d = dst;
@@ -677,6 +682,27 @@ ssize_t getline(char **lineptr, size_t *pcapa, FILE *stream) {
   *lineptr = top;
   *pcapa = capa;
   return size;
+}
+
+int getc(FILE *fp) {
+  return fgetc(fp);
+}
+
+char *fgets(char *s, int n, FILE *fp) {
+  --n;
+  char *p = s;
+  for (int i = 0; i < n; ++i) {
+    int c = fgetc(fp);
+    if (c == EOF)
+      break;
+    *p++ = c;
+    if (c == '\n')
+      break;
+  }
+  if (p == s)
+    return NULL;
+  *p = '\0';
+  return s;
 }
 
 int remove(const char *fn) {

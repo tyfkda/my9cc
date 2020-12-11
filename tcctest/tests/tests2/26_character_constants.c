@@ -2,6 +2,7 @@
 
 int main()
 {
+#if 0
    printf("%d\n", '\1');
    printf("%d\n", '\10');
    printf("%d\n", '\100');
@@ -10,6 +11,7 @@ int main()
    printf("%d\n", '\x10');
    printf("%d\n", '\x40');
    printf("test \x40\n");
+#endif
 
    return 0;
 }
