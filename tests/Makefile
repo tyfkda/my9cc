@@ -88,7 +88,7 @@ util_test:	$(UTIL_SRCS)
 	$(CC) -o$@ $(CFLAGS) $^
 
 PARSER_SRCS:=parser_test.c $(SRC_DIR)/parser_expr.c $(SRC_DIR)/lexer.c $(SRC_DIR)/parser.c \
-	$(SRC_DIR)/type.c $(SRC_DIR)/ast.c $(SRC_DIR)/var.c \
+	$(SRC_DIR)/type.c $(SRC_DIR)/ast.c $(SRC_DIR)/var.c $(SRC_DIR)/initializer.c \
 	$(UTIL_DIR)/util.c $(UTIL_DIR)/table.c
 parser_test:	$(PARSER_SRCS)
 	$(CC) -o$@ $(CFLAGS) $^

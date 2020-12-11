@@ -8,6 +8,7 @@
 
 typedef struct BB BB;
 typedef struct BBContainer BBContainer;
+typedef struct Initializer Initializer;
 typedef struct Name Name;
 typedef struct RegAlloc RegAlloc;
 typedef struct Scope Scope;
@@ -141,32 +142,6 @@ Expr *new_expr_complit(const Type *type, const Token *token, Expr *var, Vector *
 
 bool is_const(Expr *expr);
 bool is_zero(Expr *expr);
-
-// Initializer
-
-enum InitializerKind {
-  IK_SINGLE,  // 123
-  IK_MULTI,   // {...}
-  IK_DOT,     // .x=123
-  IK_ARR,     // [n]=123
-};
-
-typedef struct Initializer {
-  enum InitializerKind kind;
-  const Token *token;
-  union {
-    Expr *single;
-    Vector *multi;  // <Initializer*>
-    struct {
-      const Name *name;
-      struct Initializer *value;
-    } dot;
-    struct {
-      Expr *index;
-      struct Initializer *value;
-    } arr;
-  };
-} Initializer;
 
 // Statement
 

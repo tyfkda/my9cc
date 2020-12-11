@@ -5,6 +5,7 @@
 #include <stdlib.h>  // malloc
 
 #include "ast.h"
+#include "initializer.h"
 #include "ir.h"
 #include "lexer.h"
 #include "regalloc.h"

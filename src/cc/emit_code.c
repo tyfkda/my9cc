@@ -8,6 +8,7 @@
 
 #include "ast.h"
 #include "codegen.h"
+#include "initializer.h"
 #include "ir.h"
 #include "lexer.h"
 #include "regalloc.h"

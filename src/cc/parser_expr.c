@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "ast.h"
+#include "initializer.h"
 #include "lexer.h"
 #include "table.h"
 #include "type.h"
@@ -33,35 +34,6 @@ void not_void(const Type *type, const Token *token) {
 void not_const(const Type *type, const Token *token) {
   if (type->qualifier & TQ_CONST)
     parse_error(token, "Cannot modify `const'");
-}
-
-// Returns created global variable info.
-VarInfo *str_to_char_array(const Type *type, Initializer *init) {
-  assert(type->kind == TY_ARRAY && is_char_type(type->pa.ptrof));
-  const Token *ident = alloc_ident(alloc_label(), NULL, NULL);
-  VarInfo *varinfo = scope_add(curscope, ident, type, VS_STATIC);
-  if (is_global_scope(curscope)) {
-    Vector *decls = new_vector();
-    vec_push(decls, new_vardecl(varinfo->type, ident, init, varinfo->storage));
-    vec_push(toplevel, new_decl_vardecl(decls));
-  }
-  varinfo->global.init = init;
-  return varinfo;
-}
-
-Expr *str_to_char_array_var(Expr *str) {
-  if (str->kind != EX_STR)
-    return str;
-  const Type* type = str->type;
-  Initializer *init = malloc(sizeof(*init));
-  init->kind = IK_SINGLE;
-  init->single = str;
-  init->token = str->token;
-
-  VarInfo *gvarinfo = str_to_char_array(type, init);
-  Scope *scope;
-  VarInfo *varinfo = scope_find(curscope, gvarinfo->name, &scope);
-  return new_expr_variable(varinfo->name, type, str->token, scope);
 }
 
 bool check_cast(const Type *dst, const Type *src, bool zero, bool is_explicit, const Token *token) {
