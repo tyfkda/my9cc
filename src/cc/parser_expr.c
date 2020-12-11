@@ -1342,176 +1342,142 @@ static Expr *parse_cast_expr(void) {
   return parse_unary();
 }
 
-static Expr *parse_mul(void) {
-  Expr *expr = parse_cast_expr();
+typedef struct {
+  enum TokenKind tk;
+  enum ExprKind ex;
+} BopExprInfo;
 
-  for (;;) {
-    enum ExprKind kind;
-    Token *tok;
-    if ((tok = match(TK_MUL)) != NULL)
-      kind = EX_MUL;
-    else if ((tok = match(TK_DIV)) != NULL)
-      kind = EX_DIV;
-    else if ((tok = match(TK_MOD)) != NULL)
-      kind = EX_MOD;
-    else
-      return expr;
-
-    Expr *lhs = expr, *rhs = parse_cast_expr();
-    expr = new_expr_num_bop(kind, tok, lhs, rhs, false);
-  }
-}
-
-static Expr *parse_add(void) {
-  Expr *expr = parse_mul();
-
-  for (;;) {
-    enum ExprKind kind;
-    Token *tok;
-    if ((tok = match(TK_ADD)) != NULL)
-      kind = EX_ADD;
-    else if ((tok = match(TK_SUB)) != NULL)
-      kind = EX_SUB;
-    else
-      return expr;
-
-    Expr *lhs = expr, *rhs = parse_mul();
-    expr = new_expr_addsub(kind, tok, lhs, rhs, false);
-  }
-}
-
-static Expr *parse_shift(void) {
-  Expr *expr = parse_add();
-
-  for (;;) {
-    enum ExprKind kind;
-    Token *tok;
-    if ((tok = match(TK_LSHIFT)) != NULL)
-      kind = EX_LSHIFT;
-    else if ((tok = match(TK_RSHIFT)) != NULL)
-      kind = EX_RSHIFT;
-    else
-      return expr;
-
-    Expr *lhs = expr, *rhs = parse_add();
-    if (!is_fixnum(lhs->type->kind) ||
-        !is_fixnum(rhs->type->kind))
-      parse_error(tok, "Cannot use `%.*s' except numbers.", (int)(tok->end - tok->begin), tok->begin);
-
-    if (is_const(lhs) && is_const(rhs)) {
-      Fixnum value;
-      if (lhs->type->fixnum.is_unsigned) {
-        UFixnum lval = lhs->fixnum;
-        UFixnum rval = rhs->fixnum;
-        value = kind == EX_LSHIFT ? lval << rval : lval >> rval;
-      } else {
-        Fixnum lval = lhs->fixnum;
-        Fixnum rval = rhs->fixnum;
-        value = kind == EX_LSHIFT ? lval << rval : lval >> rval;
-      }
-      expr = new_expr_fixlit(lhs->type, tok, value);
-    } else {
-      expr = new_expr_bop(kind, lhs->type, tok, lhs, rhs);
+static Token *match_expr_op_table(const BopExprInfo *table, size_t n, enum ExprKind *kind) {
+  for (size_t i = 0; i < n; ++i, ++table) {
+    Token *tok = match(table->tk);
+    if (tok != NULL) {
+      *kind = table->ex;
+      return tok;
     }
   }
+  return NULL;
+}
+
+static Expr *bop_parser(const BopExprInfo *table, size_t n, Expr *(*subparser)(void), Expr *(*proc)(enum ExprKind, const Token *, Expr *, Expr *)) {
+  Expr *expr = subparser();
+  for (;;) {
+    enum ExprKind kind;
+    Token *tok = match_expr_op_table(table, n, &kind);
+    if (tok == NULL)
+      return expr;
+    expr = proc(kind, tok, expr, subparser());
+  }
+}
+
+static Expr *mul_expr(enum ExprKind kind, const Token *tok, Expr *lhs, Expr *rhs) {
+  return new_expr_num_bop(kind, tok, lhs, rhs, false);
+}
+static Expr *parse_mul(void) {
+  static const BopExprInfo table[] = {
+    {TK_MUL, EX_MUL},
+    {TK_DIV, EX_DIV},
+    {TK_MOD, EX_MOD},
+  };
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_cast_expr, mul_expr);
+}
+
+static Expr *add_expr(enum ExprKind kind, const Token *tok, Expr *lhs, Expr *rhs) {
+  return new_expr_addsub(kind, tok, lhs, rhs, false);
+}
+static Expr *parse_add(void) {
+  static const BopExprInfo table[] = {
+    {TK_ADD, EX_ADD},
+    {TK_SUB, EX_SUB},
+  };
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_mul, add_expr);
+}
+
+static Expr *shift_expr(enum ExprKind kind, const Token *tok, Expr *lhs, Expr *rhs) {
+  if (!is_fixnum(lhs->type->kind) ||
+      !is_fixnum(rhs->type->kind))
+    parse_error(tok, "Cannot use `%.*s' except numbers.", (int)(tok->end - tok->begin), tok->begin);
+
+  if (is_const(lhs) && is_const(rhs)) {
+    Fixnum value;
+    if (lhs->type->fixnum.is_unsigned) {
+      UFixnum lval = lhs->fixnum;
+      UFixnum rval = rhs->fixnum;
+      value = kind == EX_LSHIFT ? lval << rval : lval >> rval;
+    } else {
+      Fixnum lval = lhs->fixnum;
+      Fixnum rval = rhs->fixnum;
+      value = kind == EX_LSHIFT ? lval << rval : lval >> rval;
+    }
+    return new_expr_fixlit(lhs->type, tok, value);
+  } else {
+    return new_expr_bop(kind, lhs->type, tok, lhs, rhs);
+  }
+}
+static Expr *parse_shift(void) {
+  static const BopExprInfo table[] = {
+    {TK_LSHIFT, EX_LSHIFT},
+    {TK_RSHIFT, EX_RSHIFT},
+  };
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_add, shift_expr);
 }
 
 static Expr *parse_cmp(void) {
-  Expr *expr = parse_shift();
-
-  for (;;) {
-    enum ExprKind kind;
-    Token *tok;
-    if ((tok = match(TK_LT)) != NULL)
-      kind = EX_LT;
-    else if ((tok = match(TK_GT)) != NULL)
-      kind = EX_GT;
-    else if ((tok = match(TK_LE)) != NULL)
-      kind = EX_LE;
-    else if ((tok = match(TK_GE)) != NULL)
-      kind = EX_GE;
-    else
-      return expr;
-
-    Expr *lhs = expr, *rhs = parse_shift();
-    expr = new_expr_cmp(kind, tok, lhs, rhs);
-  }
+  static const BopExprInfo table[] = {
+    {TK_LT, EX_LT},
+    {TK_GT, EX_GT},
+    {TK_LE, EX_LE},
+    {TK_GE, EX_GE},
+  };
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_shift, new_expr_cmp);
 }
 
 static Expr *parse_eq(void) {
-  Expr *expr = parse_cmp();
-
-  for (;;) {
-    enum ExprKind kind;
-    Token *tok;
-    if ((tok = match(TK_EQ)) != NULL)
-      kind = EX_EQ;
-    else if ((tok = match(TK_NE)) != NULL)
-      kind = EX_NE;
-    else
-      return expr;
-
-    Expr *lhs = expr, *rhs = parse_cmp();
-    expr = new_expr_cmp(kind, tok, lhs, rhs);
-  }
+  static const BopExprInfo table[] = {
+    {TK_EQ, EX_EQ},
+    {TK_NE, EX_NE},
+  };
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_cmp, new_expr_cmp);
 }
 
+static Expr *bit_expr(enum ExprKind kind, const Token *tok, Expr *lhs, Expr *rhs) {
+  return new_expr_int_bop(kind, tok, lhs, rhs, false);
+}
 static Expr *parse_and(void) {
-  Expr *expr = parse_eq();
-  for (;;) {
-    Token *tok;
-    if ((tok = match(TK_AND)) == NULL)
-      return expr;
-
-    Expr *lhs = expr, *rhs = parse_eq();
-    expr = new_expr_int_bop(EX_BITAND, tok, lhs, rhs, false);
-  }
+  static const BopExprInfo table[] = {{TK_AND, EX_BITAND}};
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_eq, bit_expr);
 }
 
 static Expr *parse_xor(void) {
-  Expr *expr = parse_and();
-  for (;;) {
-    Token *tok;
-    if ((tok = match(TK_HAT)) == NULL)
-      return expr;
-
-    Expr *lhs = expr, *rhs = parse_and();
-    expr = new_expr_int_bop(EX_BITXOR, tok, lhs, rhs, false);
-  }
+  static const BopExprInfo table[] = {{TK_HAT, EX_BITXOR}};
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_and, bit_expr);
 }
 
 static Expr *parse_or(void) {
-  Expr *expr = parse_xor();
-  for (;;) {
-    Token *tok;
-    if ((tok = match(TK_OR)) == NULL)
-      return expr;
-
-    Expr *lhs = expr, *rhs = parse_xor();
-    expr = new_expr_int_bop(EX_BITOR, tok, lhs, rhs, false);
-  }
+  static const BopExprInfo table[] = {{TK_OR, EX_BITOR}};
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_xor, bit_expr);
 }
 
+static Expr *logical_expr(enum ExprKind kind, const Token *tok, Expr *lhs, Expr *rhs) {
+  return new_expr_bop(kind, &tyBool, tok, make_cond(lhs), make_cond(rhs));
+}
 static Expr *parse_logand(void) {
-  Expr *expr = parse_or();
-  for (;;) {
-    Token *tok;
-    if ((tok = match(TK_LOGAND)) != NULL)
-      expr = new_expr_bop(EX_LOGAND, &tyBool, tok, make_cond(expr), make_cond(parse_or()));
-    else
-      return expr;
-  }
+  static const BopExprInfo table[] = {{TK_LOGAND, EX_LOGAND}};
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_or, logical_expr);
 }
 
 static Expr *parse_logior(void) {
-  Expr *expr = parse_logand();
-  for (;;) {
-    Token *tok;
-    if ((tok = match(TK_LOGIOR)) != NULL)
-      expr = new_expr_bop(EX_LOGIOR, &tyBool, tok, make_cond(expr), make_cond(parse_logand()));
-    else
-      return expr;
-  }
+  static const BopExprInfo table[] = {{TK_LOGIOR, EX_LOGIOR}};
+  return bop_parser(table, sizeof(table) / sizeof(*table),
+                    parse_logand, logical_expr);
 }
 
 static const Type *to_ptr_type(const Type *type) {
