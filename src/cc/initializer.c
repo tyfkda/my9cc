@@ -53,6 +53,39 @@ void fix_array_size(Type *type, Initializer *init) {
   }
 }
 
+static Stmt *build_memcpy(Expr *dst, Expr *src, size_t size) {
+  assert(!is_global_scope(curscope));
+  const Type *charptr_type = ptrof(&tyChar);
+  VarInfo *dstvar = scope_add(curscope, alloc_ident(alloc_label(), NULL, NULL), charptr_type, 0);
+  VarInfo *srcvar = scope_add(curscope, alloc_ident(alloc_label(), NULL, NULL), charptr_type, 0);
+  VarInfo *sizevar = scope_add(curscope, alloc_ident(alloc_label(), NULL, NULL), &tySize, 0);
+  Expr *dstexpr = new_expr_variable(dstvar->name, dstvar->type, NULL, curscope);
+  Expr *srcexpr = new_expr_variable(srcvar->name, srcvar->type, NULL, curscope);
+  Expr *sizeexpr = new_expr_variable(sizevar->name, sizevar->type, NULL, curscope);
+
+  Fixnum size_num_lit = size;
+  Expr *size_num = new_expr_fixlit(&tySize, NULL, size_num_lit);
+
+  Fixnum zero = 0;
+  Expr *zeroexpr = new_expr_fixlit(&tySize, NULL, zero);
+
+  Vector *stmts = new_vector();
+  vec_push(stmts, new_stmt_expr(new_expr_bop(EX_ASSIGN, charptr_type, NULL, dstexpr, dst)));
+  vec_push(stmts, new_stmt_expr(new_expr_bop(EX_ASSIGN, charptr_type, NULL, srcexpr, src)));
+  vec_push(stmts, new_stmt_for(
+      NULL,
+      new_expr_bop(EX_ASSIGN, &tySize, NULL, sizeexpr, size_num),    // for (_size = size;
+      new_expr_bop(EX_GT, &tyBool, NULL, sizeexpr, zeroexpr),        //      _size > 0;
+      new_expr_unary(EX_PREDEC, &tySize, NULL, sizeexpr),            //      --_size)
+      new_stmt_expr(                                                 //   *_dst++ = *_src++;
+          new_expr_bop(EX_ASSIGN, &tyChar, NULL,
+                       new_expr_unary(EX_DEREF, &tyChar, NULL,
+                                      new_expr_unary(EX_POSTINC, charptr_type, NULL, dstexpr)),
+                       new_expr_unary(EX_DEREF, &tyChar, NULL,
+                                      new_expr_unary(EX_POSTINC, charptr_type, NULL, srcexpr))))));
+  return new_stmt_block(NULL, stmts, NULL);
+}
+
 // Returns created global variable info.
 VarInfo *str_to_char_array(const Type *type, Initializer *init) {
   assert(type->kind == TY_ARRAY && is_char_type(type->pa.ptrof));
@@ -91,6 +124,28 @@ Initializer *convert_str_to_ptr_initializer(const Type *type, Initializer *init)
   init2->single = new_expr_variable(varinfo->name, type, NULL, global_scope);
   init2->token = init->token;
   return init2;
+}
+
+Stmt *init_char_array_by_string(Expr *dst, Initializer *src) {
+  // Initialize char[] with string literal (char s[] = "foo";).
+  assert(src->kind == IK_SINGLE);
+  const Expr *str = src->single;
+  assert(str->kind == EX_STR);
+  assert(dst->type->kind == TY_ARRAY && is_char_type(dst->type->pa.ptrof));
+
+  size_t size = str->str.size;
+  size_t dstsize = dst->type->pa.length;
+  if (dstsize == (size_t)-1) {
+    ((Type*)dst->type)->pa.length = dstsize = size;
+  } else {
+    if (dstsize < size)
+      parse_error(NULL, "Buffer is shorter than string: %d for \"%s\"", (int)dstsize, str);
+  }
+
+  const Type *strtype = dst->type;
+  VarInfo *varinfo = str_to_char_array(strtype, src);
+  Expr *var = new_expr_variable(varinfo->name, strtype, NULL, global_scope);
+  return build_memcpy(dst, var, size);
 }
 
 static int compare_desig_start(const void *a, const void *b) {
@@ -262,6 +317,161 @@ Initializer *flatten_initializer(const Type *type, Initializer *init) {
       break;
     }
   default:
+    break;
+  }
+  return init;
+}
+
+Initializer *check_global_initializer(const Type *type, Initializer *init) {
+  if (init == NULL)
+    return NULL;
+
+  init = flatten_initializer(type, init);
+
+  switch (type->kind) {
+  case TY_FIXNUM:
+    if (init->kind == IK_SINGLE) {
+      switch (init->single->kind) {
+      case EX_FIXNUM:
+        return init;
+      default:
+        parse_error(init->single->token, "Constant expression expected");
+        break;
+      }
+    }
+    break;
+#ifndef __NO_FLONUM
+  case TY_FLONUM:
+    if (init->kind == IK_SINGLE) {
+      switch (init->single->kind) {
+      case EX_FIXNUM:
+        {
+          Fixnum fixnum = init->single->fixnum;
+          init->single = new_expr_flolit(type, init->single->token, fixnum);
+        }
+        // Fallthrough
+      case EX_FLONUM:
+        return init;
+      default:
+        parse_error(init->single->token, "Constant expression expected");
+        break;
+      }
+    }
+    break;
+#endif
+  case TY_PTR:
+    {
+      if (init->kind != IK_SINGLE)
+        parse_error(NULL, "initializer type error");
+
+      Expr *value = init->single;
+      while (value->kind == EX_CAST) {
+        value = value->unary.sub;
+      }
+
+      switch (value->kind) {
+      case EX_REF:
+        {
+          value = value->unary.sub;
+          if (value->kind != EX_VAR)
+            parse_error(value->token, "pointer initializer must be variable");
+          const Name *name = value->var.name;
+          Scope *scope;
+          VarInfo *varinfo = scope_find(value->var.scope, name, &scope);
+          assert(varinfo != NULL);
+          if (!is_global_scope(scope)) {
+            if (!(varinfo->storage & VS_STATIC))
+              parse_error(value->token, "Allowed global reference only");
+            varinfo = varinfo->static_.gvar;
+            assert(varinfo != NULL);
+          }
+
+          if (!same_type(type->pa.ptrof, varinfo->type))
+            parse_error(value->token, "Illegal type");
+
+          return init;
+        }
+      case EX_VAR:
+        {
+          Scope *scope;
+          VarInfo *varinfo = scope_find(value->var.scope, value->var.name, &scope);
+          assert(varinfo != NULL);
+          if (!is_global_scope(scope)) {
+            if (!(varinfo->storage & VS_STATIC))
+              parse_error(value->token, "Allowed global reference only");
+            varinfo = varinfo->static_.gvar;
+            assert(varinfo != NULL);
+          }
+
+          if ((varinfo->type->kind != TY_ARRAY && varinfo->type->kind != TY_FUNC) ||
+              !can_cast(type, varinfo->type, is_zero(value), false))
+            parse_error(value->token, "Illegal type");
+
+          return init;
+        }
+      case EX_FIXNUM:
+        {
+          Initializer *init2 = malloc(sizeof(*init2));
+          init2->kind = IK_SINGLE;
+          init2->single = value;
+          return init2;
+        }
+      case EX_STR:
+        {
+          if (!is_char_type(type->pa.ptrof))
+            parse_error(value->token, "Illegal type");
+
+          // Create string and point to it.
+          Type* strtype = arrayof(type->pa.ptrof, value->str.size);
+          return convert_str_to_ptr_initializer(strtype, init);
+        }
+      default:
+        break;
+      }
+      parse_error(value->token, "initializer type error: kind=%d", value->kind);
+    }
+    break;
+  case TY_ARRAY:
+    switch (init->kind) {
+    case IK_MULTI:
+      {
+        const Type *elemtype = type->pa.ptrof;
+        Vector *multi = init->multi;
+        for (int i = 0, len = multi->len; i < len; ++i) {
+          Initializer *eleminit = multi->data[i];
+          multi->data[i] = check_global_initializer(elemtype, eleminit);
+        }
+      }
+      break;
+    case IK_SINGLE:
+      if (is_char_type(type->pa.ptrof) && init->single->kind == EX_STR) {
+        assert(type->pa.length != (size_t)-1);
+        if (type->pa.length < init->single->str.size) {
+          parse_error(init->single->token, "Array size shorter than initializer");
+        }
+        break;
+      }
+      // Fallthrough
+    case IK_DOT:
+    default:
+      parse_error(NULL, "Illegal initializer");
+      break;
+    }
+    break;
+  case TY_STRUCT:
+    {
+      assert(init->kind == IK_MULTI);
+      const StructInfo *sinfo = type->struct_.info;
+      for (int i = 0, n = sinfo->members->len; i < n; ++i) {
+        const VarInfo* member = sinfo->members->data[i];
+        Initializer *init_elem = init->multi->data[i];
+        if (init_elem != NULL)
+          init->multi->data[i] = check_global_initializer(member->type, init_elem);
+      }
+    }
+    break;
+  default:
+    parse_error(NULL, "Global initial value for type %d not implemented (yet)\n", type->kind);
     break;
   }
   return init;
