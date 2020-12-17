@@ -476,3 +476,56 @@ Initializer *check_global_initializer(const Type *type, Initializer *init) {
   }
   return init;
 }
+
+Initializer *parse_initializer(void) {
+  Initializer *result = malloc(sizeof(*result));
+  const Token *lblace_tok;
+  if ((lblace_tok = match(TK_LBRACE)) != NULL) {
+    Vector *multi = new_vector();
+    if (!match(TK_RBRACE)) {
+      for (;;) {
+        Initializer *init;
+        const Token *tok;
+        if (match(TK_DOT)) {  // .member=value
+          Token *ident = consume(TK_IDENT, "`ident' expected for dotted initializer");
+          consume(TK_ASSIGN, "`=' expected for dotted initializer");
+          Initializer *value = parse_initializer();
+          init = malloc(sizeof(*init));
+          init->kind = IK_DOT;
+          init->token = ident;
+          init->dot.name = ident->ident;
+          init->dot.value = value;
+        } else if ((tok = match(TK_LBRACKET)) != NULL) {
+          Expr *index = parse_const();
+          consume(TK_RBRACKET, "`]' expected");
+          match(TK_ASSIGN);  // both accepted: `[1] = 2`, and `[1] 2`
+          Initializer *value = parse_initializer();
+          init = malloc(sizeof(*init));
+          init->kind = IK_ARR;
+          init->token = tok;
+          init->arr.index = index;
+          init->arr.value = value;
+        } else {
+          init = parse_initializer();
+        }
+        vec_push(multi, init);
+
+        if (match(TK_COMMA)) {
+          if (match(TK_RBRACE))
+            break;
+        } else {
+          consume(TK_RBRACE, "`}' or `,' expected");
+          break;
+        }
+      }
+    }
+    result->kind = IK_MULTI;
+    result->token = lblace_tok;
+    result->multi = multi;
+  } else {
+    result->kind = IK_SINGLE;
+    result->single = parse_assign();
+    result->token = result->single->token;
+  }
+  return result;
+}

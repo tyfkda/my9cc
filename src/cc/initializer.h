@@ -41,3 +41,4 @@ Initializer *convert_str_to_ptr_initializer(const Type *type, Initializer *init)
 Stmt *init_char_array_by_string(Expr *dst, Initializer *src);
 Initializer *flatten_initializer(const Type *type, Initializer *init);
 Initializer *check_global_initializer(const Type *type, Initializer *init);
+Initializer *parse_initializer(void);

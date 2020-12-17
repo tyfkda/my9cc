@@ -41,5 +41,4 @@ bool check_cast(const Type *dst, const Type *src, bool zero, bool is_explicit, c
 Expr *make_cast(const Type *type, const Token *token, Expr *sub, bool is_explicit);
 Expr *make_cond(Expr *expr);
 
-Initializer *parse_initializer(void);
 Vector *assign_initial_value(Expr *expr, Initializer *init, Vector *inits);
