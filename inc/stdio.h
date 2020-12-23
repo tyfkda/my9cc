@@ -3,6 +3,12 @@
 #include "stdarg.h"
 #include "stddef.h"
 
+#if defined(__APPLE__)
+#define stdin   __stdinp
+#define stdout  __stdoutp
+#define stderr  __stderrp
+#endif
+
 #define EOF  (-1)
 
 enum {
