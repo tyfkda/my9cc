@@ -99,6 +99,8 @@ compile_error() {
   fi
 }
 
+try 'non nul-terminated str' 4 'char str[4]="abcd"; return sizeof(str);'
+
 try_output 'write' 'hello' "write(1, \"hello\\\\n\", 6);"
 try_output 'char array' 123 "char s[16]; s[0] = '1'; s[1] = '2'; s[2] = '3'; s[3] = '\\\\n'; write(1, s, 4);"
 try_output 'string initializer' 'aBc' "char s[] = \"abc\\\\n\"; s[1] = 'B'; write(1, s, 4);"

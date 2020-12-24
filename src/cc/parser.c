@@ -55,7 +55,7 @@ void fix_array_size(Type *type, Initializer *init) {
   } else {
     assert(!is_str || init->single->kind == EX_STR);
     size_t init_len = is_str ? init->single->str.size : (size_t)init->multi->len;
-    if (init_len > arr_len)
+    if (init_len > arr_len && (!is_str || init_len - 1 > arr_len))
       parse_error(NULL, "Initializer more than array size");
   }
 }
@@ -117,7 +117,7 @@ static Stmt *init_char_array_by_string(Expr *dst, Initializer *src) {
   if (dstsize == (size_t)-1) {
     ((Type*)dst->type)->pa.length = dstsize = size;
   } else {
-    if (dstsize < size)
+    if (dstsize < size - 1)
       parse_error(NULL, "Buffer is shorter than string: %d for \"%s\"", (int)dstsize, str);
   }
 
