@@ -17,6 +17,43 @@
 #include "var.h"
 #include "x86_64.h"
 
+static void eval_initial_value(Expr *expr, Expr **pvar, Fixnum *poffset) {
+  switch (expr->kind) {
+  case EX_CAST:
+    eval_initial_value(expr->unary.sub, pvar, poffset);
+    return;
+  case EX_REF:
+    {
+      Expr *sub = expr->unary.sub;
+      if (sub->kind == EX_DEREF) {
+        eval_initial_value(sub->unary.sub, pvar, poffset);
+      } else {
+        assert(sub->kind == EX_VAR);
+        eval_initial_value(sub, pvar, poffset);
+      }
+    }
+    return;
+  case EX_VAR:
+    assert(*pvar == NULL);
+    *pvar = expr;
+    break;
+  case EX_FIXNUM:
+    if (!is_const(expr))
+      assert(!"initializer type error");
+    *poffset = expr->fixnum;
+    return;
+  case EX_STR:
+    assert(!"should be handled in parser");
+    break;
+  case EX_ADD:
+    {
+
+    }
+    break;
+  default: assert(!"illegal"); break;
+  }
+}
+
 static void construct_initial_value(const Type *type, const Initializer *init) {
   assert(init == NULL || init->kind != IK_DOT);
 
@@ -89,20 +126,26 @@ static void construct_initial_value(const Type *type, const Initializer *init) {
     break;
 #endif
   case TY_PTR:
-    if (init != NULL) {
+    {
+      if (init == NULL) {
+        _QUAD(NUM(0));
+        break;
+      }
+
       assert(init->kind == IK_SINGLE);
-      Expr *value = init->single;
-      while (value->kind == EX_CAST)
-        value = value->unary.sub;
-      if (value->kind == EX_REF || value->kind == EX_VAR) {
-        if (value->kind == EX_REF)
-          value = value->unary.sub;
+      Expr *var = NULL;
+      Fixnum offset = 0;
+      eval_initial_value(init->single, &var, &offset);
+fprintf(stderr, "eval_initial_value result: var=%p, offset=%" PRIdPTR "\n", (void*)var, offset);
 
-        assert(value->kind == EX_VAR);
-
-        const Name *name = value->var.name;
+      if (var == NULL) {
+        // if (!is_const(offset))
+        //   assert(!"initializer type error");
+        _QUAD(NUM(offset));
+      } else {
+        const Name *name = var->var.name;
         Scope *scope;
-        VarInfo *varinfo = scope_find(value->var.scope, name, &scope);
+        VarInfo *varinfo = scope_find(var->var.scope, name, &scope);
         assert(varinfo != NULL);
         if (!is_global_scope(scope) && varinfo->storage & VS_STATIC) {
           varinfo = varinfo->static_.gvar;
@@ -113,17 +156,48 @@ static void construct_initial_value(const Type *type, const Initializer *init) {
         const char *label = fmt_name(name);
         if ((varinfo->storage & VS_STATIC) == 0)
           label = MANGLE(label);
-        _QUAD(label);
-      } else if (value->kind == EX_STR) {
-        assert(!"should be handled in parser");
-      } else if (is_const(value) && value->kind == EX_FIXNUM) {
-        Fixnum x = value->fixnum;
-        _QUAD(NUM(x));
-      } else {
-        assert(!"initializer type error");
+
+        if (offset == 0) {
+          _QUAD(label);
+        } else {
+          _QUAD(fmt("%s + %" PRIdPTR, label, NUM(offset)));
+        }
       }
-    } else {
-      _QUAD(NUM(0));
+
+      // Expr *value = init->single;
+      // while (value->kind == EX_CAST)
+      //   value = value->unary.sub;
+
+      // switch (value->kind) {
+      // case EX_REF:
+      // case EX_VAR:
+      //   {
+      //     if (value->kind == EX_REF)
+      //       value = value->unary.sub;
+
+      //     assert(value->kind == EX_VAR);
+
+      //   }
+      //   break;
+      // case EX_FIXNUM:
+      //   {
+      //     if (!is_const(value))
+      //       assert(!"initializer type error");
+      //     intptr_t x = value->fixnum;
+      //     _QUAD(NUM(x));
+      //   }
+      //   break;
+      // case EX_STR:
+      //   assert(!"should be handled in parser");
+      //   break;
+      // case EX_ADD:
+      // case EX_SUB:
+      //   {
+
+      //   }
+      //   break;
+      // default: assert(!"illegal"); break;
+      // }
     }
     break;
   case TY_ARRAY:

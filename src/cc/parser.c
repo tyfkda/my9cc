@@ -406,9 +406,8 @@ if (value->kind != EX_VAR) {
         }
       case EX_ADD:
       case EX_SUB:
-        {
-          return init;
-        }
+        fprintf(stderr, "PTR ADDSUB: kind=%d, l=%d, r=%d\n", value->kind, value->bop.lhs->kind, value->bop.rhs->kind);
+        return init;
       case EX_FIXNUM:
         return init;
       case EX_STR:
