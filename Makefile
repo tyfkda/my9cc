@@ -1,5 +1,8 @@
 XCC_DIR:=src/xcc
 CC1_DIR:=src/cc
+CC1_FE_DIR:=$(CC1_DIR)/frontend
+CC1_BE_DIR:=$(CC1_DIR)/backend
+CC1_ARCH_DIR:=$(CC1_DIR)/arch
 CPP_DIR:=src/cpp
 AS_DIR:=src/as
 UTIL_DIR:=src/util
@@ -8,15 +11,19 @@ OBJ_DIR:=obj
 OPTIMIZE:=-O2 -g3
 CFLAGS:=-ansi -std=c11 -pedantic -MD -Wall -Wextra -Werror -Wold-style-definition \
 	-Wno-missing-field-initializers -Wno-typedef-redefinition -Wno-empty-body
-CFLAGS+=-I$(CC1_DIR) -I$(UTIL_DIR) $(OPTIMIZE)
+CFLAGS+=-I$(CC1_FE_DIR) -I$(CC1_BE_DIR) -I$(UTIL_DIR) $(OPTIMIZE)
+CFLAGS+=-I$(CC1_ARCH_DIR)/x64
 CFLAGS+=-D_POSIX_C_SOURCE=200809L  # for getline
 
 XCC_SRCS:=$(wildcard $(XCC_DIR)/*.c) \
 	$(UTIL_DIR)/util.c $(UTIL_DIR)/table.c
 CC1_SRCS:=$(wildcard $(CC1_DIR)/*.c) \
+	$(wildcard $(CC1_FE_DIR)/*.c) \
+	$(wildcard $(CC1_BE_DIR)/*.c) \
+	$(wildcard $(CC1_ARCH_DIR)/x64/*.c) \
 	$(UTIL_DIR)/util.c $(UTIL_DIR)/table.c
 CPP_SRCS:=$(wildcard $(CPP_DIR)/*.c) \
-	$(CC1_DIR)/lexer.c $(CC1_DIR)/type.c $(CC1_DIR)/var.c \
+	$(CC1_FE_DIR)/lexer.c $(CC1_FE_DIR)/type.c $(CC1_FE_DIR)/var.c \
 	$(UTIL_DIR)/util.c $(UTIL_DIR)/table.c
 AS_SRCS:=$(wildcard $(AS_DIR)/*.c) \
 	$(UTIL_DIR)/util.c $(UTIL_DIR)/elfutil.c $(UTIL_DIR)/table.c
@@ -32,6 +39,10 @@ all:	xcc cc1 cpp as
 .PHONY: release
 release:
 	$(MAKE) OPTIMIZE=-O2
+
+hoge:
+	echo $(CC1_OBJS)
+	echo $(CC1_SRCS)
 
 xcc: $(XCC_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -52,6 +63,18 @@ $(OBJ_DIR)/%.o: $(XCC_DIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OBJ_DIR)/%.o: $(CC1_DIR)/%.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJ_DIR)/%.o: $(CC1_FE_DIR)/%.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJ_DIR)/%.o: $(CC1_BE_DIR)/%.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJ_DIR)/%.o: $(CC1_ARCH_DIR)/x64/%.c
 	@mkdir -p $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 

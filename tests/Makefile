@@ -4,7 +4,7 @@ UTIL_DIR:=../src/util
 CFLAGS=-ansi -std=c11 -Wall -Wextra -Werror \
 	-Wold-style-definition -Wno-missing-field-initializers -Wno-typedef-redefinition \
 	-Wno-empty-body
-CFLAGS+=-I$(SRC_DIR) -I$(UTIL_DIR)
+CFLAGS+=-I$(SRC_DIR)/frontend -I$(UTIL_DIR)
 CFLAGS+=-D_POSIX_C_SOURCE=200809L  # for getline
 
 EXE_DIR:=.
@@ -108,8 +108,8 @@ UTIL_SRCS:=util_test.c $(UTIL_DIR)/util.c $(UTIL_DIR)/table.c
 util_test:	$(UTIL_SRCS)
 	$(CC) -o$@ $(CFLAGS) $^
 
-PARSER_SRCS:=parser_test.c $(SRC_DIR)/parser_expr.c $(SRC_DIR)/lexer.c $(SRC_DIR)/parser.c \
-	$(SRC_DIR)/type.c $(SRC_DIR)/ast.c $(SRC_DIR)/var.c \
+PARSER_SRCS:=parser_test.c $(SRC_DIR)/frontend/parser_expr.c $(SRC_DIR)/frontend/lexer.c $(SRC_DIR)/frontend/parser.c \
+	$(SRC_DIR)/frontend/type.c $(SRC_DIR)/frontend/ast.c $(SRC_DIR)/frontend/var.c \
 	$(UTIL_DIR)/util.c $(UTIL_DIR)/table.c
 parser_test:	$(PARSER_SRCS)
 	$(CC) -o$@ $(CFLAGS) $^
@@ -124,7 +124,7 @@ dvaltest:	$(FVAL_SRCS) flotest.inc # $(XCC)
 fvaltest:	$(FVAL_SRCS) flotest.inc # $(XCC)
 	$(XCC) -o$@ -DUSE_SINGLE -I../inc $(FVAL_SRCS)
 
-TYPE_SRCS:=print_type_test.c $(SRC_DIR)/type.c $(UTIL_DIR)/util.c $(UTIL_DIR)/table.c
+TYPE_SRCS:=print_type_test.c $(SRC_DIR)/frontend/type.c $(UTIL_DIR)/util.c $(UTIL_DIR)/table.c
 print_type_test:	$(TYPE_SRCS)
 	gcc -o $@ $(CFLAGS) $^
 
