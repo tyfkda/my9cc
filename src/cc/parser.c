@@ -6,6 +6,7 @@
 #include <stdlib.h>  // malloc
 
 #include "ast.h"
+#include "astaux.h"
 #include "lexer.h"
 #include "table.h"
 #include "type.h"
@@ -20,78 +21,6 @@ static int curloopflag;
 Stmt *curswitch;
 
 static Stmt *parse_stmt(void);
-
-void fix_array_size(Type *type, Initializer *init) {
-  assert(init != NULL);
-  assert(type->kind == TY_ARRAY);
-
-  bool is_str = (is_char_type(type->pa.ptrof) &&
-                 init->kind == IK_SINGLE &&
-                 init->single->kind == EX_STR);
-  if (!is_str && init->kind != IK_MULTI) {
-    parse_error(init->token, "Error initializer");
-  }
-
-  ssize_t arr_len = type->pa.length;
-  if (arr_len == -1) {
-    if (is_str) {
-      type->pa.length = init->single->str.size;
-    } else {
-      ssize_t index = 0;
-      ssize_t max_index = 0;
-      for (ssize_t i = 0; i < init->multi->len; ++i) {
-        Initializer *init_elem = init->multi->data[i];
-        if (init_elem->kind == IK_ARR) {
-          assert(init_elem->arr.index->kind == EX_FIXNUM);
-          index = init_elem->arr.index->fixnum;
-        }
-        ++index;
-        if (max_index < index)
-          max_index = index;
-      }
-      type->pa.length = max_index;
-    }
-  } else {
-    assert(arr_len > 0);
-    assert(!is_str || init->single->kind == EX_STR);
-    ssize_t init_len = is_str ? (ssize_t)init->single->str.size : (ssize_t)init->multi->len;
-    if (init_len > arr_len)
-      parse_error(NULL, "Initializer more than array size");
-  }
-}
-
-static Stmt *build_memcpy(Expr *dst, Expr *src, size_t size) {
-  assert(!is_global_scope(curscope));
-  const Type *charptr_type = ptrof(&tyChar);
-  VarInfo *dstvar = scope_add(curscope, alloc_ident(alloc_label(), NULL, NULL), charptr_type, 0);
-  VarInfo *srcvar = scope_add(curscope, alloc_ident(alloc_label(), NULL, NULL), charptr_type, 0);
-  VarInfo *sizevar = scope_add(curscope, alloc_ident(alloc_label(), NULL, NULL), &tySize, 0);
-  Expr *dstexpr = new_expr_variable(dstvar->name, dstvar->type, NULL, curscope);
-  Expr *srcexpr = new_expr_variable(srcvar->name, srcvar->type, NULL, curscope);
-  Expr *sizeexpr = new_expr_variable(sizevar->name, sizevar->type, NULL, curscope);
-
-  Fixnum size_num_lit = size;
-  Expr *size_num = new_expr_fixlit(&tySize, NULL, size_num_lit);
-
-  Fixnum zero = 0;
-  Expr *zeroexpr = new_expr_fixlit(&tySize, NULL, zero);
-
-  Vector *stmts = new_vector();
-  vec_push(stmts, new_stmt_expr(new_expr_bop(EX_ASSIGN, charptr_type, NULL, dstexpr, dst)));
-  vec_push(stmts, new_stmt_expr(new_expr_bop(EX_ASSIGN, charptr_type, NULL, srcexpr, src)));
-  vec_push(stmts, new_stmt_for(
-      NULL,
-      new_expr_bop(EX_ASSIGN, &tySize, NULL, sizeexpr, size_num),    // for (_size = size;
-      new_expr_bop(EX_GT, &tyBool, NULL, sizeexpr, zeroexpr),        //      _size > 0;
-      new_expr_unary(EX_PREDEC, &tySize, NULL, sizeexpr),            //      --_size)
-      new_stmt_expr(                                                 //   *_dst++ = *_src++;
-          new_expr_bop(EX_ASSIGN, &tyChar, NULL,
-                       new_expr_unary(EX_DEREF, &tyChar, NULL,
-                                      new_expr_unary(EX_POSTINC, charptr_type, NULL, dstexpr)),
-                       new_expr_unary(EX_DEREF, &tyChar, NULL,
-                                      new_expr_unary(EX_POSTINC, charptr_type, NULL, srcexpr))))));
-  return new_stmt_block(NULL, stmts, NULL);
-}
 
 // Convert string literal to global char-array variable reference.
 static Initializer *convert_str_to_ptr_initializer(Scope *scope, const Type *type, Initializer *init) {
@@ -124,7 +53,7 @@ static Stmt *init_char_array_by_string(Expr *dst, Initializer *src) {
   const Type *strtype = dst->type;
   VarInfo *varinfo = str_to_char_array(curscope, strtype, src, toplevel);
   Expr *var = new_expr_variable(varinfo->name, strtype, NULL, curscope);
-  return build_memcpy(dst, var, size);
+  return build_memcpy(curscope, dst, var, size);
 }
 
 static int compare_desig_start(const void *a, const void *b) {

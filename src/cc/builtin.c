@@ -1,6 +1,7 @@
 #include <assert.h>
 
 #include "ast.h"
+#include "astaux.h"
 #include "lexer.h"
 #include "parser.h"
 #include "table.h"
