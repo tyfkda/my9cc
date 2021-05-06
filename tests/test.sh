@@ -99,6 +99,12 @@ compile_error() {
   fi
 }
 
+try_direct 'typedef name can use in local' 61 'typedef int Foo; int main(){ int Foo=61; Foo; return Foo; }'
+try_direct 'typedef name can use in local' 61 'typedef int Foo; int main(){ int Foo=61; Foo * a; return Foo; }'
+try_direct 'typedef name can use in local' 61 'typedef int Foo; int main(){ int Foo=61; int a=2; Foo * a; return Foo * a; }'
+compile_error 'typedef name can use in global' 'typedef int Foo; int Foo = 61; void main(){}'
+exit 1
+
 try_output 'write' 'hello' "write(1, \"hello\\\\n\", 6);"
 try_output 'char array' 123 "char s[16]; s[0] = '1'; s[1] = '2'; s[2] = '3'; s[3] = '\\\\n'; write(1, s, 4);"
 try_output 'string initializer' 'aBc' "char s[] = \"abc\\\\n\"; s[1] = 'B'; write(1, s, 4);"
