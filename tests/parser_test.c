@@ -216,12 +216,24 @@ static Type *parse_pointer(Type *type) {
   return type;
 }
 
+typedef struct TypeSuffix {
+  struct TypeSuffix *next;
+  enum TokenKind kind;
+  union {
+    ssize_t length;
+    struct {
+      Vector *params;
+      bool vaargs;
+    } f;
+  };
+} TypeSuffix;
+
 // <direct-declarator> ::= <identifier>
 //                       | ( <declarator> )
 //                       | <direct-declarator> [ {<constant-expression>}? ]
 //                       | <direct-declarator> ( <parameter-type-list> )
 //                       | <direct-declarator> ( {<identifier>}* )
-static Type *parse_direct_declarator_suffix(Type *type) {
+static TypeSuffix *parse_direct_declarator_suffix(TypeSuffix *suffix) {
   if (match(TK_LBRACKET)) {
     ssize_t length = -1;
     if (match(TK_RBRACKET)) {
@@ -235,14 +247,49 @@ static Type *parse_direct_declarator_suffix(Type *type) {
       length = expr->fixnum;
       consume(TK_RBRACKET, "`]' expected");
     }
-    type = arrayof(parse_direct_declarator_suffix(type), length);
+    // type = arrayof(parse_direct_declarator_suffix(type), length);
+    suffix = parse_direct_declarator_suffix(suffix);
+    TypeSuffix *suf = malloc(sizeof(*suf));
+    suf->next = suffix;
+    suf->kind = TK_LBRACKET;
+    suf->length = length;
+    suffix = suf;
   } else if (match(TK_LPAR)) {
     bool vaargs;
     Vector *params = parse_funparams(&vaargs);
-    const Type *rettype = parse_direct_declarator_suffix(type);
+    suffix = parse_direct_declarator_suffix(suffix);
 
-    Vector *param_types = extract_varinfo_types(params);
-    type = new_func_type(rettype, params, param_types, vaargs);
+    // Vector *param_types = extract_varinfo_types(params);
+    // type = new_func_type(rettype, params, param_types, vaargs);
+    TypeSuffix *suf = malloc(sizeof(*suf));
+    suf->next = suffix;
+    suf->kind = TK_LPAR;
+    suf->f.params = params;
+    suf->f.vaargs = vaargs;
+    suffix = suf;
+  }
+  return suffix;
+}
+static Type *construct_suffix_type(Type *type, TypeSuffix *suffix) {
+  if (suffix != NULL) {
+    type = construct_suffix_type(type, suffix->next);
+    switch (suffix->kind) {
+    case TK_LBRACKET:
+      type = arrayof(type, suffix->length);
+      break;
+    case TK_LPAR:
+      {
+        if (type->kind == TY_FUNC) {
+          parse_error(NULL, "Cannot return function type");
+        }
+
+        Vector *params = suffix->f.params;
+        Vector *param_types = extract_varinfo_types(params);
+        type = new_func_type(type, params, param_types, suffix->f.vaargs);
+      }
+      break;
+    default:  assert(false); break;
+    }
   }
   return type;
 }
@@ -257,11 +304,15 @@ static Type *parse_direct_declarator(Type *type, Token **pident) {
     type = parse_declarator(placeholder, &ident);
     consume(TK_RPAR, "`)' expected");
 
-    Type *inner = parse_direct_declarator_suffix(ret);
+    // Type *inner = parse_direct_declarator_suffix(ret);
+    TypeSuffix *suffix = parse_direct_declarator_suffix(NULL);
+    Type *inner = construct_suffix_type(ret, suffix);
     memcpy(placeholder, inner, sizeof(*placeholder));
   } else {
     ident = match(TK_IDENT);
-    type = parse_direct_declarator_suffix(type);
+    // type = parse_direct_declarator_suffix(type);
+    TypeSuffix *suffix = parse_direct_declarator_suffix(NULL);
+    type = construct_suffix_type(type, suffix);
   }
 
   if (pident != NULL)
