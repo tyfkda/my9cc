@@ -39,7 +39,8 @@ function tmpfileSync(len) {
 }
 
 ;(async () => {
-  const memory = new WebAssembly.Memory({initial:10, maximum:256})
+  // const memory = new WebAssembly.Memory({initial:10, maximum:256})
+  let memory
   const HEAP_ALIGN = 8
   const HEAP_PAGE_SIZE = 65536
   let breakStartAddress = 0
@@ -79,6 +80,27 @@ function tmpfileSync(len) {
   const files = new Map()
 
   function getImports() {
+    const wasi = {
+      fd_write: (fd, iov, count, out) => {
+        const iovArray = new Uint32Array(memory.buffer, iov, count * 2)
+        let total = 0
+        for (let i = 0; i < count; ++i) {
+          const p = iovArray[i * 2]
+          const n = iovArray[i * 2 + 1]
+          const memoryImage = new Uint8Array(memory.buffer, p, n)
+          if (fd < 3) {
+            total += fs.writeSync(fd, memoryImage)
+          } else {
+            const bytes = fs.writeSync(fd, memoryImage)
+            files[fd].position += bytes
+            total += bytes
+          }
+        }
+        const outBuf = new Uint32Array(memory.buffer, out, 1)
+        outBuf[0] = total
+        return total
+      },
+    }
     const imports = {
       c: {
         read: (fd, buf, size) => {
@@ -200,9 +222,10 @@ function tmpfileSync(len) {
             memoryImage[dst++] = val
         },
       },
-      env: {
-        memory,
-      },
+      // env: {
+      //   memory,
+      // },
+      wasi_snapshot_preview1: wasi,
     }
     return imports
   }
@@ -210,6 +233,9 @@ function tmpfileSync(len) {
   async function loadWasm(wasmFile) {
     const imports = getImports()
     const instance = await createWasm(wasmFile, imports)
+    if (instance.exports.memory) {
+      memory = instance.exports.memory
+    }
     const stackPointer = instance.exports.$_SP
     if (stackPointer != null)
       breakStartAddress = breakAddress = ALIGN(stackPointer.valueOf(), HEAP_ALIGN)
@@ -241,17 +267,21 @@ function tmpfileSync(len) {
   }
 
   async function main(argv) {
-    if (argv.length < 3) {
-      console.error('Usage: <wasmFile> ...args')
-      process.exit(1)
+    const program = require('commander')
+    program
+      .option('-e, --entry <func-name>', 'Entry point', '_start')
+      .parse(argv)
+
+    if (program.args < 1) {
+      program.help()
     }
 
-    const args = argv.slice(2)
+    const args = program.args
     const wasmFile = args[0]
     const instance = await loadWasm(wasmFile)
     const argsPtr = putArgs(args)
     try {
-      const result = instance.exports.main(args.length, argsPtr)
+      const result = instance.exports[program.entry](args.length, argsPtr)
       if (result !== 0)
         process.exit(result)
     } catch (e) {

@@ -561,12 +561,16 @@ char *getcwd(char *buffer, size_t size) {
     if (buffer == NULL)
       return NULL;
   }
+#if 0
   int result = _getcwd(buffer, size);
   if (result < 0) {
     // errno = -result;
     free(allocated);
     return NULL;
   }
+#else
+  strcpy(buffer, ".");
+#endif
   return buffer;
 }
 
